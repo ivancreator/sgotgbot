@@ -77,18 +77,19 @@ async def getAttachments(call: types.CallbackQuery, callback_data: dict, state: 
                     await file_msg.edit_text("📥 Загрузка документа")
                     response = await ns._request_with_optional_relogin("attachments/"+str(attachment['id']))
                     filename = unquote(str(response.headers.get('filename')))
-                    file = open(filename, "wb")
+                    filepath = path.abspath("temp/"+filename)
+                    file = open(filepath, "wb")
                     file.write(response.content)
                     file.close()
                     await file_msg.edit_text("📤 Отправка документа")
-                    await call.message.answer_document(document=types.InputFile(filename))
+                    await call.message.answer_document(document=types.InputFile(filepath))
                     await file_msg.delete()
-                    remove(path.abspath(attachment['name']))
+                    remove(filepath)
                 except Exception as e:
                     print("Ошибка при получении документа: "+str(e))
                     print("Аргументы: "+str(e.args))
                     raise Exception("Unknown exception").with_traceback(e)
-    except TypeError as e:
+    except (TypeError, KeyError) as e:
         await file_msg.edit_text("⚠️ Нет активных учётных записей")
     except IndexError as e:
         await file_msg.edit_text("📑 Документ не найден")
