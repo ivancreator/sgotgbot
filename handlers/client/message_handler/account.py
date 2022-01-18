@@ -23,12 +23,13 @@ async def setting(message: types.Message, state: FSMContext):
     if account[16]:
         await db.execute("UPDATE accounts SET alert = False WHERE telegram_id = %s AND status = 'active'", [message.from_user.id])
         await message.answer("🔕 Уведомления отключены")
+        await message.delete()
     else:
         ns = ns_sessions[message.from_user.id]
         await db.execute("UPDATE accounts SET alert = True, chat_id = %s WHERE telegram_id = %s AND status = 'active'", [message.chat.id, message.from_user.id])
         await message.answer("🔔 Уведомления включены")
+        await message.delete()
         await checkNew(message.from_user.id, message.chat.id, ns)
-    await message.delete()
 
 @dp.message_handler(Main(), text="🚪 Выход", state=selectAccount.menu)
 async def exit(message: types.Message, state: FSMContext):
