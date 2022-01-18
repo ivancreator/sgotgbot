@@ -32,13 +32,16 @@ async def setting(message: types.Message, state: FSMContext):
 
 @dp.message_handler(Main(), text="🚪 Выход", state=selectAccount.menu)
 async def exit(message: types.Message, state: FSMContext):
+    exit_msg = await message.answer("🚪 Выполняется выход из учётной записи")
+    await message.delete()
     db = InitDb()
     account_id = await db.execute("SELECT id FROM accounts WHERE telegram_id = %s AND status = 'active'", [message.from_user.id])
-    await db.execute("UPDATE accounts SET status = 'inactive' AND alert = False WHERE id = %s", [account_id])
+    await db.execute("UPDATE accounts SET status = 'inactive', alert = False WHERE id = %s", [account_id])
     data = await state.get_data()
     ns = ns_sessions[message.from_user.id]
+    await exit_msg.edit_text("🕐 Отправлен запрос на выход")
+    await accountsList(message, state)
     await ns.logout()
     del ns_sessions[message.from_user.id]
-    await accountsList(message, state)
     await data['message'].delete()
-    await message.delete()
+    await exit_msg.delete()

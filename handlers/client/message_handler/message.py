@@ -73,8 +73,8 @@ async def getLogin(message: types.Message, state: FSMContext):
 async def add(message: types.Message, state: FSMContext, fail: str = None):
     data = await state.get_data()
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("◀️ Вернуться",
-               callback_data=cb_account.new(action='select_sft', value=data['sft'])))
+    # markup.add(types.InlineKeyboardButton("◀️ Вернуться",
+    #            callback_data=cb_account.new(action='select_sft', value=data['sft'])))
     if fail == "AuthError":
         await message.edit_text("❗️ Не верные данные, повторите попытку.\n👤 Введите имя пользователя", reply_markup=markup)
     elif fail == "UnknownError":
@@ -87,29 +87,31 @@ async def add(message: types.Message, state: FSMContext, fail: str = None):
     await addAccount.login.set()
 
 async def checkData(message: types.Message, msg, state):
+    db = InitDb()
     data = await state.get_data()
     ns = ns_sessions[message.from_user.id]
     response = await ns._client.get("schools/" +
                          str(data['scid'])+"/card")
     if response.status_code == 200:
         await msg.edit_text("🕐 Проверка данных")
-        school_name = response.json()["commonInfo"]["schoolName"]
+        school_name = str(response.json()["commonInfo"]["schoolName"])
         try:
             await ns.login(data['login'], data['password'], data['cid'], data['sid'], data['pid'], data['cn'], data['sft'], data['scid'])
-            init = await ns._client.get('student/diary/init')
+            init = await ns._request_with_optional_relogin('student/diary/init')
             nickname = str(init.json()['students'][0]['nickName'])
-            await Account.add(message.from_user.id, data['cid'], data['sid'], data['pid'], data['cn'], data['sft'], data['scid'], data['login'], data['password'], data['url'], nickname)
+            display_name = nickname + " ("+ school_name +")"
+            account = await Account.add(message.from_user.id, data['cid'], data['sid'], data['pid'], data['cn'], data['sft'], data['scid'], data['login'], data['password'], ns._url, display_name)
+            await db.execute("UPDATE accounts SET status = 'active' WHERE id = %s", [account[0]])
             await state.reset_state(with_data=True)
             db = InitDb()
             account = await db.execute(f"SELECT * FROM accounts WHERE telegram_id = {message.from_user.id}")
             await selectAccount.menu.set()
             await accountMenu(msg, state, account[0])
-        except errors.AuthError:
-            await add(msg, state, fail="AuthError")
+        except errors.AuthError as e:
+            await msg.edit_text("⚠ "+str(e))
         except Exception as e:
             print("Ошибка при входе в СГО: " + str(e))
-            await add(msg, state, fail="UnknownError")
-            await ns.logout()
+            await msg.edit_text("❗️ Возникла неожиданная ошибка, попробуйте ещё раз")
 
 @dp.message_handler(state=addAccount.password)
 async def getPassword(message: types.Message, state: FSMContext):

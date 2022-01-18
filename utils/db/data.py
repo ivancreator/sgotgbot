@@ -26,8 +26,8 @@ class Update():
 class Account():
     async def add(telegram_id: int, cid: int, sid: int, pid: int, cn: int, sft: int, scid: int, login: str, password: str, url: str, nickname: str):
         data_db = InitDb()
-        await data_db.executemany("INSERT INTO accounts (telegram_id, cid, sid, pid, cn, sft, scid, login, password, url, display_name) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING", [
-            (telegram_id, cid, sid, pid, cn, sft, scid, login, password, url, nickname)])
+        return await data_db.execute("INSERT INTO accounts (telegram_id, cid, sid, pid, cn, sft, scid, login, password, url, display_name) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING RETURNING id", 
+        (telegram_id, cid, sid, pid, cn, sft, scid, login, password, url, nickname))
 
 
 class User():

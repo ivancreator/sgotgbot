@@ -38,10 +38,10 @@ async def accountLogin(message: types.Message, user_id: int, url: str, login: st
             ns = NetSchoolAPI(url)
             await ns.login(login, password, cid, sid, pid, cn, sft, scid)
         except httpx.HTTPStatusError as e:
-            await message.edit_text("⚠️ Ошибка подключения к СГО")
+            await message.edit_text("⚠️ Ошибка подключения к СГО, попробуйте ещё раз.")
             await log.write("Ошибка кода HTTP", str(e))
             await log.write("Аргументы", str(e.args))
-            await log.write("Запрос", str(e._request))
+            await log.write("Запрос", str(e.request))
             raise e
         except httpx.TimeoutException as e:
             await message.edit_text("⚠️ Слишком долгое ожидание, попробуйте ещё раз")
@@ -60,7 +60,7 @@ async def accountLogin(message: types.Message, user_id: int, url: str, login: st
 
 # Функция получения объявлений в отформатированном виде
 async def getAnnouncements(ns: NetSchoolAPI, take=-1):
-    announcements = await ns.announcements(take)
+    announcements = await ns.announcements(take=take)
     clear_announcements = []
     for announcement in announcements:
         tree = BeautifulSoup(unescape(announcement["content"]), 'html.parser')
@@ -100,6 +100,7 @@ async def sendAnnouncement(chat_id: int, announcement):
                     atags_raw.append(
                         {'text': atag.text, 'href': atag.get("href")})
         clear_content.append(content.text)
+    # date = announcement['post_date']
     info = str(announcement['name']) + "\n🗣 " + str(announcement['author']['nickName']) + "\n"
     entity = [types.MessageEntity(type="bold", offset=0, length=len(announcement["name"])), types.MessageEntity(
         type="underline", offset=0, length=len(announcement["name"]))]
@@ -161,6 +162,7 @@ async def checkNew(telegram_id, chat_id, ns: NetSchoolAPI):
                 old_data = new_data
             await asyncio.sleep(latency)
     except (httpx.HTTPError) as e:
+        await bot.send_message(chat_id, "⚠ Ошибка подключения при получении объявлений")
         await log.write("Ошибка подключения", str(e))
         await log.write("Аргументы", str(e.args))
         await log.write("Запрос", str(e._request))

@@ -75,7 +75,7 @@ async def getAttachments(call: types.CallbackQuery, callback_data: dict, state: 
             if attachment['id'] == int(callback_data['value']):
                 try:
                     await file_msg.edit_text("📥 Загрузка документа")
-                    response = await ns._client.get("attachments/"+str(attachment['id']))
+                    response = await ns._request_with_optional_relogin("attachments/"+str(attachment['id']))
                     filename = unquote(str(response.headers.get('filename')))
                     file = open(filename, "wb")
                     file.write(response.content)

@@ -1,17 +1,17 @@
-# import asyncio
-import nest_asyncio, asyncio
 import psycopg2
-nest_asyncio.apply()
+from config import DB_CONFIG
 
-def run_and_get(coroutine):
-    task = asyncio.create_task(coroutine)
-    asyncio.get_running_loop().run_until_complete(task)
-    return task.result()
+# def run_and_get(coroutine):
+#     import nest_asyncio, asyncio
+#     nest_asyncio.apply()
+#     task = asyncio.create_task(coroutine)
+#     asyncio.get_running_loop().run_until_complete(task)
+#     return task.result()
 
 class InitDb():
 
     def __init__(self, *args, **kwargs):
-        self.conn = psycopg2.connect(host='localhost', user='user', dbname='database', password='password')
+        self.conn = psycopg2.connect(host=DB_CONFIG['host'], user=DB_CONFIG['user'], dbname=DB_CONFIG['db'], password=DB_CONFIG['password'])
         self.cursor = self.conn.cursor()
 
     async def execute(self, query, vars = None):
