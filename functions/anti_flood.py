@@ -1,3 +1,3 @@
 from aiogram import types
-async def anti_flood(message: types.Message):
-    await message.answer("Слишком частый запрос, попробуйте немного позже")
+async def anti_flood(*args, **kwargs):
+    await args[0].answer("Слишком частый запрос, попробуйте немного позже")
