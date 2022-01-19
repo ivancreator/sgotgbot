@@ -4,11 +4,10 @@ from aiogram import types
 from filters import IsOwner
 from callbacks import cb_account
 from functions import admin_menu, admin_userEdit
-from utils.db import InitDb
+from utils.db import db
 
 @dp.callback_query_handler(IsOwner(), cb_account.filter(action='admin_user_select'))
 async def admin_userSelect(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
-    db = InitDb('data.db')
     users = db.executeall("SELECT * FROM users")
     for x in users:
         if int(callback_data['user_id']) == x[0]:
@@ -23,7 +22,6 @@ async def admin_userSelect(call: types.CallbackQuery, callback_data: dict, state
 
 @dp.callback_query_handler(IsOwner(), cb_account.filter(action='admin_user_update'))
 async def admin_userSelect(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
-    db = InitDb('data.db')
     users = db.executeall("SELECT * FROM users")
     for x in users:
         await bot.answer_callback_query(call.id)

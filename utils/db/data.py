@@ -1,11 +1,11 @@
 from .database import InitDb
 import json
 
+db = InitDb()
 
 class InitData():
 
     async def dataSetup(self):
-        db = InitDb()
         await db.execute(
             'CREATE TABLE IF NOT EXISTS regions (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, display_name text, site text)')
         await db.execute(
@@ -18,27 +18,23 @@ class Update():
 
     async def regionsUpdate(self):
         regions = json.load(open("regions.json", mode="r", encoding="utf-8"))
-        regions_db = InitDb()
-        await regions_db.executemany(
+        await db.executemany(
             'INSERT INTO regions (display_name, site) VALUES (%s, %s) ON CONFLICT DO NOTHING', regions)
 
 
 class Account():
     async def add(telegram_id: int, cid: int, sid: int, pid: int, cn: int, sft: int, scid: int, login: str, password: str, url: str, nickname: str):
-        data_db = InitDb()
-        return await data_db.execute("INSERT INTO accounts (telegram_id, cid, sid, pid, cn, sft, scid, login, password, url, display_name) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING RETURNING id", 
+        return await db.execute("INSERT INTO accounts (telegram_id, cid, sid, pid, cn, sft, scid, login, password, url, display_name) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING RETURNING id", 
         (telegram_id, cid, sid, pid, cn, sft, scid, login, password, url, nickname))
 
 
 class User():
     async def add(telegram_id, username, first_name, last_name, isOwner = False, BetaAccess = False, StartStatus = False):
-        db = InitDb()
         await db.executemany(
             "INSERT INTO public.users(telegram_id, username, first_name, last_name, is_owner, beta_access, welcome_message) VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING", [(telegram_id, username, first_name, last_name, isOwner, BetaAccess, StartStatus)])
 
     # Возвращает данные пользователя по Telegram ID
     async def data(telegram_id):
-        db = InitDb()
         response = await db.execute(
             f"SELECT * FROM users WHERE telegram_id = {telegram_id}")
         return response

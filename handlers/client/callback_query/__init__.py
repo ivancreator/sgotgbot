@@ -2,7 +2,7 @@ from aiogram import types
 from aiogram.dispatcher.storage import FSMContext
 from filters import Main, IsOwner
 from states import addAccount
-from utils.db import InitDb
+from utils.db import db
 from aiogram.utils.callback_data import CallbackData
 from callbacks import cb_account
 from .add import dp, bot

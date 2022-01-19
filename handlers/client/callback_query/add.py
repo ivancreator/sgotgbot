@@ -5,7 +5,7 @@ from aiogram.dispatcher.storage import FSMContext
 from filters import Main, IsOwner
 from functions.client import cidSelect, sidSelect, pidSelect, cnSelect, sftSelect, scidSelect, getloginState, schoolInfo
 from states import addAccount
-from utils.db import InitDb
+from utils.db import db
 from aiogram.utils.callback_data import CallbackData
 from callbacks import cb_account
 from functions.sgo import ns_sessions
@@ -64,7 +64,6 @@ async def select_cid_handler(call: types.CallbackQuery, callback_data: dict, sta
 async def account_add(call: types.CallbackQuery, state=FSMContext):
     await bot.answer_callback_query(call.id)
     await addAccount.url.set()
-    db = InitDb()
     regions = await db.executeall("SELECT * FROM regions ORDER BY users_count DESC NULLS LAST LIMIT 3")
     if regions:
         await nsSelect(call.message)
@@ -76,7 +75,6 @@ async def account_add(call: types.CallbackQuery, state=FSMContext):
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='region_select'), state=['*'])
 async def regionSelect(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
-    db = InitDb()
     region = await db.execute("SELECT url FROM regions WHERE id = %s", [callback_data['value']])
     await addAccount.cid.set()
     ns_sessions[call.from_user.id] = NetSchoolAPI(region[0])
@@ -84,7 +82,6 @@ async def regionSelect(call: types.CallbackQuery, callback_data: dict, state: FS
     
 
 async def nsSelect(message: types.Message):
-    db = InitDb()
     regions = await db.executeall("SELECT * FROM regions ORDER BY users_count DESC NULLS LAST LIMIT 3")
     markup = types.InlineKeyboardMarkup()
     button_loc = types.InlineKeyboardButton(

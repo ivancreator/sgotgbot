@@ -1,6 +1,6 @@
 from aiogram.dispatcher.filters import Filter
 from aiogram import types
-from utils.db import InitDb, User
+from utils.db import User, db
 
 class IsLink(Filter):
     key = 'is_link'
@@ -17,8 +17,7 @@ class IsLink(Filter):
 class IsOwner(Filter):
     key = 'is_owner'
     async def check(self, message: types.Message):
-        user_db = InitDb()
-        response = await user_db.execute(
+        response = await db.execute(
             f"SELECT is_owner FROM users WHERE telegram_id = {message.from_user.id}")
         if response[0]:
             return True
@@ -27,7 +26,6 @@ class IsOwner(Filter):
 class Main(Filter):
     key = 'beta_access'
     async def check(self, message: types.Message):
-        db = InitDb()
         if await User.data(message.from_user.id):
             response = await db.execute(
                 f"SELECT is_owner, beta_access FROM users WHERE telegram_id = {message.from_user.id}")

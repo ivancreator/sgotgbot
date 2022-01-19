@@ -9,7 +9,7 @@ from filters import Main, IsOwner
 from functions.client import cidSelect, sidSelect, pidSelect, cnSelect, sftSelect, scidSelect, getloginState
 from states import addAccount, selectAccount
 import states
-from utils.db import InitDb
+from utils.db import db
 from aiogram.utils.callback_data import CallbackData
 from callbacks import cb_account
 import httpx, typing
@@ -28,7 +28,6 @@ async def accountSelect(call: types.CallbackQuery, callback_data: dict, state: F
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='account_remove'), state=[selectAccount.select, selectAccount.menu])
 async def accountRemove(call: types.CallbackQuery(), callback_data: dict, state: FSMContext):
-    db = InitDb()
     data = await state.get_data()
     await db.execute(f"DELETE FROM accounts WHERE id = {callback_data['value']}")
     await call.answer("🗑 Учётная запись успешно удалена")
@@ -39,7 +38,6 @@ async def accountRemove(call: types.CallbackQuery(), callback_data: dict, state:
 async def accountselectConfirm(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
     account_id = callback_data['value']
     if account_id:
-        db = InitDb()
         account_tg_id = await db.execute("SELECT telegram_id FROM accounts WHERE id = %s", [account_id])
         if account_tg_id[0] == call.from_user.id:
             await call.answer()
@@ -66,7 +64,6 @@ async def getAttachments(call: types.CallbackQuery, callback_data: dict, state: 
     try:
         await call.answer()
         file_msg = await call.message.answer("🕐 Немного подождите")
-        db = InitDb()
         account = await db.execute("SELECT * FROM accounts WHERE telegram_id = %s AND status = 'active'", [call.from_user.id])
         ns = ns_sessions[call.from_user.id]
         await file_msg.edit_text("🔍 Поиск документа")

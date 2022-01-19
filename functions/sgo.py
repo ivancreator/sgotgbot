@@ -7,7 +7,7 @@ from states import addAccount, selectAccount
 from netschoolapi import NetSchoolAPI, errors
 from html import unescape
 from bs4 import BeautifulSoup
-from utils.db import InitDb
+from utils.db import db
 from datetime import datetime
 import httpx, asyncio
 
@@ -37,7 +37,6 @@ async def accountLogin(message: types.Message, user_id: int, account_id, url: st
             raise KeyError("No login data")
     except KeyError:
         try:
-            db = InitDb()
             ns = NetSchoolAPI(url)
             await ns.login(login, password, cid, sid, pid, cn, sft, scid)
             await db.execute("UPDATE accounts SET status = 'active' WHERE id = %s", [account_id])
@@ -141,7 +140,6 @@ async def add_checkThread(telegram_id, chat_id, ns):
     thread.start()
 
 async def reStore():
-    db = InitDb()
     accounts = await db.executeall("SELECT * FROM accounts WHERE status = 'active'")
     for account in accounts:
         try:
@@ -172,7 +170,6 @@ async def closeAll():
 
 async def checkNew(telegram_id, chat_id, ns: NetSchoolAPI):
     try:
-        db = InitDb()
         account = await db.execute("SELECT id, alert FROM accounts WHERE telegram_id = %s AND status = 'active'", [telegram_id])
         old_data = [announcemet async for announcemet in getAnnouncements(ns, take=-1)]
         while account[1]:

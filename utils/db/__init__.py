@@ -1,1 +1,1 @@
-from .data import InitDb, User, Account
+from .data import User, Account, db

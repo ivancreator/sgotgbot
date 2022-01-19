@@ -7,7 +7,7 @@ from states import selectAccount
 from functions.client import sendAnnouncements, accountsList
 from functions.sgo import add_checkThread, checkNew, ns_sessions
 from netschoolapi import NetSchoolAPI
-from utils.db.database import InitDb
+from utils.db.data import db
 
 @dp.message_handler(Main(), text="📋 Просмотр объявлений", state=selectAccount.menu)
 @dp.throttled(anti_flood, rate=3)
@@ -21,7 +21,6 @@ async def announcements(message: types.Message, state: FSMContext):
 @dp.message_handler(Main(), text="⚙️ Настройки", state=selectAccount.menu)
 @dp.throttled(anti_flood, rate=3)
 async def setting(message: types.Message, state: FSMContext):
-    db = InitDb()
     account = await db.execute("SELECT * FROM accounts WHERE telegram_id = %s AND status = 'active'", [message.from_user.id])
     if account[16]:
         await db.execute("UPDATE accounts SET alert = False WHERE telegram_id = %s AND status = 'active'", [message.from_user.id])
@@ -37,7 +36,6 @@ async def setting(message: types.Message, state: FSMContext):
 async def exit(message: types.Message, state: FSMContext):
     exit_msg = await message.answer("🚪 Выполняется выход из учётной записи")
     await message.delete()
-    db = InitDb()
     account_id = await db.execute("SELECT id FROM accounts WHERE telegram_id = %s AND status = 'active'", [message.from_user.id])
     await db.execute("UPDATE accounts SET status = 'inactive', alert = False WHERE id = %s", [account_id])
     data = await state.get_data()

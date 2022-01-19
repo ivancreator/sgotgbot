@@ -7,12 +7,11 @@ from states import addAccount, selectAccount
 from netschoolapi import NetSchoolAPI, errors
 from html import unescape
 from bs4 import BeautifulSoup
-from utils.db import InitDb
+from utils.db import db
 from os import path, remove
 from functions.sgo import getAnnouncements, sendAnnouncement, ns_sessions
 
 async def accountMenu(message: types.Message, state: FSMContext, ns):
-    db = InitDb()
     # try:
     await selectAccount.menu.set()
     markup = types.ReplyKeyboardMarkup()
@@ -39,7 +38,6 @@ async def accountAdd(message: types.Message):
         '➕Нажмите на соответствующую кнопку чтобы добавить данные для входа в учётную запись Сетевого Города', reply_markup=markup)
 
 async def accountsCheck(message: types.Message, state: FSMContext):
-    db = InitDb()
     data = await db.executeall(f"SELECT * FROM accounts WHERE telegram_id = {message.from_user.id}")
     if data:
         await accountsList(message, state)
@@ -47,7 +45,6 @@ async def accountsCheck(message: types.Message, state: FSMContext):
         await accountAdd(message)
 
 async def accountsList(message: types.Message, state: FSMContext):
-    db = InitDb()
     accounts_data = await db.executeall(f"SELECT * FROM accounts WHERE telegram_id = {message.from_user.id}")
     await selectAccount.select.set()
     async with state.proxy() as data:
@@ -60,7 +57,6 @@ async def accountsList(message: types.Message, state: FSMContext):
     await message.answer("📃 Выберите учётную запись", reply_markup=markup)
 
 async def admin_menu(message: types.Message):
-    db = InitDb()
     users = await db.executeall("SELECT * FROM users")
     markup = types.InlineKeyboardMarkup()
     for x in users:
@@ -73,8 +69,7 @@ async def admin_menu(message: types.Message):
         await message.answer(text, reply_markup=markup)
 
 async def admin_userEdit(message: types.Message, x):
-    users_db = InitDb()
-    user = await users_db.execute(f"SELECT * FROM users WHERE id = {x[0]}")
+    user = await db.execute(f"SELECT * FROM users WHERE id = {x[0]}")
     markup = types.InlineKeyboardMarkup()
     if user[5]:
         markup.add(types.InlineKeyboardButton(

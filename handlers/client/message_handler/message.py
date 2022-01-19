@@ -2,7 +2,7 @@ from aiogram import types
 from aiogram.types.message import ParseMode
 from bot import dp
 from handlers.client.callback_query.add import nsSelect
-from utils.db import InitDb, User, Account
+from utils.db import db, User, Account
 from filters import Main, IsLink, userAdd
 # from handlers.client.callback_query import add, schooltypeSelect
 from aiogram.dispatcher.storage import FSMContext
@@ -14,7 +14,6 @@ import httpx
 
 @dp.message_handler(Main(), commands="start", state="*")
 async def start(message: types.Message, state: FSMContext):
-    db = InitDb()
     user = await User.data(message.from_user.id)
     if not user:
         await userAdd(message)
@@ -87,7 +86,6 @@ async def add(message: types.Message, state: FSMContext, fail: str = None):
     await addAccount.login.set()
 
 async def checkData(message: types.Message, msg, state):
-    db = InitDb()
     data = await state.get_data()
     ns = ns_sessions[message.from_user.id]
     response = await ns._client.get("schools/" +
@@ -103,7 +101,6 @@ async def checkData(message: types.Message, msg, state):
             account = await Account.add(message.from_user.id, data['cid'], data['sid'], data['pid'], data['cn'], data['sft'], data['scid'], data['login'], data['password'], ns._url, display_name)
             await db.execute("UPDATE accounts SET status = 'active' WHERE id = %s", [account[0]])
             await state.reset_state(with_data=True)
-            db = InitDb()
             account = await db.execute(f"SELECT * FROM accounts WHERE telegram_id = {message.from_user.id}")
             await selectAccount.menu.set()
             await accountMenu(msg, state, account[0])

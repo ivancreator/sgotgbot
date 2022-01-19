@@ -1,7 +1,7 @@
 from aiogram import types
 from aiogram.dispatcher.storage import FSMContext
 from bot import dp, bot
-from utils.db import InitDb, User
+from utils.db import db, User
 from filters import IsOwner, Main, IsLink, userAdd
 from states import addAccount
 from functions import cidSelect, ns_sessions
@@ -10,7 +10,6 @@ import httpx
 
 @dp.message_handler(Main(), content_types=["location"], state=addAccount.wait_geo)
 async def test(message: types.Message, state: FSMContext):
-    db = InitDb()
     nmessage = await bot.send_message(message.chat.id, "🕐 Немного подождите")
     data = await state.get_data()
     old_message = data["message"]
