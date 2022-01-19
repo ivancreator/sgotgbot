@@ -46,13 +46,13 @@ async def accountselectConfirm(call: types.CallbackQuery, callback_data: dict, s
             await call.message.edit_text("🕐 Выполняется вход в учётную запись")
             account = await db.execute("SELECT * FROM accounts WHERE id = %s", [account_id])
             try:
-                await accountLogin(call.message, call.from_user.id, account[10], account[8], account[9], account[2], account[3], account[4], account[5], account[6], account[7])
+                await accountLogin(call.message, call.from_user.id, account[0], account[10], account[8], account[9], account[2], account[3], account[4], account[5], account[6], account[7])
             except Exception as e:
                 raise e
             else:
-                await db.execute("UPDATE accounts SET status = 'active' WHERE id = %s", [account_id])
                 ns = ns_sessions[account_tg_id[0]]
                 await accountMenu(call.message, state, ns)
+                await call.message.delete()
         else:
             await call.answer("⚠ Это учётная запись принадлежит другому пользователю")
     else:

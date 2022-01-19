@@ -1,4 +1,5 @@
-from bot import bot
+import threading
+from bot import bot, dp
 from aiogram import types
 from aiogram.dispatcher.storage import FSMContext
 from callbacks import cb_account
@@ -12,6 +13,7 @@ import httpx, asyncio
 
 latency = 5
 ns_sessions = {}
+alert_threads = {}
 
 class log:
     def __init__(self, filename):
@@ -28,15 +30,17 @@ class log:
 
 log = log("latest_log.txt")
 
-async def accountLogin(message: types.Message, user_id: int, url: str, login: str, password: str, cid, sid, pid, cn, sft, scid):
+async def accountLogin(message: types.Message, user_id: int, account_id, url: str, login: str, password: str, cid, sid, pid, cn, sft, scid):
     try:
         ns = ns_sessions[user_id]
         if not ns._login_data:
             raise KeyError("No login data")
     except KeyError:
         try:
+            db = InitDb()
             ns = NetSchoolAPI(url)
             await ns.login(login, password, cid, sid, pid, cn, sft, scid)
+            await db.execute("UPDATE accounts SET status = 'active' WHERE id = %s", [account_id])
         except httpx.HTTPStatusError as e:
             await message.edit_text("⚠️ Ошибка подключения к СГО, попробуйте ещё раз.")
             await log.write("Ошибка кода HTTP", str(e))
@@ -118,40 +122,63 @@ async def sendAnnouncement(chat_id: int, announcement):
     else:
         await bot.send_message(chat_id, message_text, entities=entity)
 
-async def checkAlerts():
+# def run_event_loop(coroutine):
+#     loop = asyncio.new_event_loop()
+#     asyncio.set_event_loop(loop)
+#     loop.кгт(coroutine)
+#     loop.close()
+
+# def run_and_get(coroutine):
+#     import nest_asyncio, asyncio
+#     nest_asyncio.apply()
+#     task = asyncio.create_task(coroutine)
+#     asyncio.get_running_loop().run_until_complete(task)
+#     return task.result()
+
+async def add_checkThread(telegram_id, chat_id, ns):
+    loop = asyncio.get_running_loop()
+    thread = alert_threads[telegram_id] = threading.Thread(name=str(telegram_id), target=asyncio.run_coroutine_threadsafe, args=(checkNew(telegram_id, chat_id, ns),loop,))
+    thread.start()
+
+async def reStore():
     db = InitDb()
-    accounts = await db.executeall("SELECT * FROM accounts WHERE alert = True AND status = 'active'")
+    accounts = await db.executeall("SELECT * FROM accounts WHERE status = 'active'")
     for account in accounts:
         try:
             ns = ns_sessions[account[1]] = NetSchoolAPI(account[10])
             await ns.login(account[8], account[9], account[2], account[3], account[4], account[5], account[6], account[7])
-            await checkNew(account[1], account[15], ns)
+            if account[16]:
+                await add_checkThread(account[1], account[15], ns)
+            print(account)
+            await asyncio.sleep(0.5)
         except errors.AuthError as e:
-            await log.write("ОБРАБОТАННАЯ ОШИБКА", "При запуске: Не верные данные для входа ("+str(e)+")")
+            await log.write("ОБРАБОТАННАЯ ОШИБКА", "При запуске: "+str(e))
             await db.execute("UPDATE accounts SET alert = False WHERE id = %s", [account[0]])
-            await bot.send_message(account[15], "⚠️ Ошибка входа в учётную запись ("+str(account[12])+"), функция уведомлений отключена.")
+            await bot.send_message(account[15], "⚠️ Ошибка входа в учётную запись "+str(account[12])+", функция уведомлений отключена.\nПодробности: "+str(e))
         except Exception as e:
             await log.write("ОШИБКА", "Неожиданная ошибка при входе в СГО ("+str(e)+")")
-            await bot.send_message(account[15], "❗️ Неожиданная ошибка")
+            await bot.send_message(account[15], "❗️ Неожиданная ошибка при восстановлении сессии")
 
 async def closeAll():
     await log.close()
     print("Logout all sessions\n"+str(ns_sessions))
-    for session in ns_sessions.items():
-        print(str("tgID: ")+str(session[0]))
-        ns = session[1]
-        print("Class object: "+str(session[1]))
+    # for tg_id, thread in alert_threads:
+    #     del alert_threads[tg_id]
+    for tg_id, ns in tuple(ns_sessions.items()):
         await ns.logout()
+        print(str("tgID: ")+str(tg_id))
+        print("Class object: "+str(ns))
+        del ns_sessions[tg_id]
 
 async def checkNew(telegram_id, chat_id, ns: NetSchoolAPI):
     try:
         db = InitDb()
         account = await db.execute("SELECT id, alert FROM accounts WHERE telegram_id = %s AND status = 'active'", [telegram_id])
-        old_data = [announcemet async for announcemet in getAnnouncements(ns, take=2)]
+        old_data = [announcemet async for announcemet in getAnnouncements(ns, take=-1)]
         while account[1]:
             account = await db.execute("SELECT id, alert FROM accounts WHERE id = %s", [account[0]])
             await log.write(account[0], "Check announcement updates")
-            new_data = [announcemet async for announcemet in getAnnouncements(ns, take=2)]
+            new_data = [announcemet async for announcemet in getAnnouncements(ns, take=-1)]
             if new_data != old_data:
                 await log.write(account[0], "Find the announcement updates")
                 new_objects = await getNew(tuple(old_data), tuple(new_data))
@@ -165,7 +192,10 @@ async def checkNew(telegram_id, chat_id, ns: NetSchoolAPI):
         await bot.send_message(chat_id, "⚠ Ошибка подключения при получении объявлений")
         await log.write("Ошибка подключения", str(e))
         await log.write("Аргументы", str(e.args))
-        await log.write("Запрос", str(e._request))
+        if hasattr(e, 'request'):
+            await log.write("Запрос", str(e.request))
+        if hasattr(e, 'response'):
+            await log.write("Ответ", str(e.response))
         await checkNew(telegram_id, chat_id, ns)
     except errors.AuthError as e:
         await bot.send_message(chat_id, "⚠️ Ошибка входа в учётную запись ("+str(account[12])+"), функция уведомлений отключена.")

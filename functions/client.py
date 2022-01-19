@@ -30,7 +30,6 @@ async def accountMenu(message: types.Message, state: FSMContext, ns):
     # except Exception as e:
     #     await message.answer("❌ Неожиданная ошибка, попробуйте ещё раз")
 
-    await message.delete()
 
 async def accountAdd(message: types.Message):
     markup = types.InlineKeyboardMarkup()
