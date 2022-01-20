@@ -34,6 +34,7 @@ async def accountLogin(message: types.Message, user_id: int, account_id, url: st
     try:
         ns = ns_sessions[user_id]
         if not ns._login_data:
+            await ns.logout()
             del ns_sessions[user_id]
             raise errors.AuthError("Нет данных для входа")
     except (KeyError, errors.AuthError) as e:
@@ -42,21 +43,21 @@ async def accountLogin(message: types.Message, user_id: int, account_id, url: st
             await ns.login(login, password, cid, sid, pid, cn, sft, scid)
         except httpx.HTTPStatusError as e:
             await message.edit_text("⚠️ Ошибка подключения к СГО, попробуйте ещё раз.")
-            await log.write("Ошибка кода HTTP", str(e))
-            await log.write("Аргументы", str(e.args))
-            await log.write("Запрос", str(e.request))
+            await log.write(str(account_id), "Ошибка кода HTTP: " + str(e))
+            await log.write(str(account_id), "Аргументы: " + str(e.args))
+            await log.write(str(account_id), "Запрос" + str(e.request))
             raise e
         except httpx.TimeoutException as e:
             await message.edit_text("⚠️ Слишком долгое ожидание, попробуйте ещё раз")
-            await log.write("Долгое ожидание", "Во время запроса: TimeoutException ("+str(e)+")")
+            await log.write(str(account_id), "Долгое ожидание во время запроса: TimeoutException ("+str(e)+")")
             raise e
         except errors.AuthError as e:
             await message.edit_text("⚠️ "+str(e))
-            await log.write("Ошибка входа", "Во время запроса: Не верные данные для входа, AuthError ("+str(e)+")")
+            await log.write(str(account_id), "Обработанная ошибка входа во время запроса: "+str(e))
             raise e
-        except errors.NetSchoolAPIError as e:
-            await message.edit_text("⚠️ "+str(e))
-            await log.write("Ошибка в форме СГО", "Во время запроса: NetSchoolAPIError ("+str(e)+")")
+        except Exception as e:
+            await message.edit_text("⚠️ Неожиданная ошибка")
+            await log.write(str(account_id), "Неожиданная ошибка при входе ("+str(e)+")")
             raise e
         else:
             await db.execute("UPDATE accounts SET status = 'active' WHERE id = %s", [account_id])
@@ -189,12 +190,12 @@ async def checkNew(telegram_id, chat_id, ns: NetSchoolAPI):
                         old_data = new_data
                 except httpx.HTTPError as e:
                     await bot.send_message(chat_id, "⚠ Ошибка подключения при получении объявлений")
-                    await log.write("Ошибка подключения", str(e))
-                    await log.write("Аргументы", str(e.args))
+                    await log.write(str(account[0]), "Ошибка подключения: " + str(e))
+                    await log.write(str(account[0]), "Аргументы: " + str(e.args))
                     if hasattr(e, 'request'):
-                        await log.write("Запрос", str(e.request))
+                        await log.write(str(account[0]), "Запрос: " + str(e.request))
                     if hasattr(e, 'response'):
-                        await log.write("Ответ", str(e.response))
+                        await log.write(str(account[0]), "Ответ: " + str(e.response))
                     continue
                 finally:
                     await asyncio.sleep(latency)
@@ -202,7 +203,7 @@ async def checkNew(telegram_id, chat_id, ns: NetSchoolAPI):
                 break
     except errors.AuthError as e:
         await bot.send_message(chat_id, "⚠️ Ошибка входа в учётную запись "+str(account[12])+", функция уведомлений отключена.")
-        await log.write(str(account[0]), "ОБРАБОТАННАЯ ОШИБКА: Во время запроса: Не верные данные для входа ("+str(e)+")")
+        await log.write(str(account[0]), "Обработанная ошибка входа во время запроса: "+str(e))
         await db.execute("UPDATE accounts SET alert = False WHERE id = %s", [account[0]])
     except Exception as e:
         await log.write(str(account[0]), "НЕОЖИДАННОЕ ИСКЛЮЧЕНИЕ: "+str(e))
