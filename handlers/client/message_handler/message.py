@@ -103,7 +103,8 @@ async def checkData(message: types.Message, msg, state):
             await state.reset_state(with_data=True)
             account = await db.execute(f"SELECT * FROM accounts WHERE telegram_id = {message.from_user.id}")
             await selectAccount.menu.set()
-            await accountMenu(msg, state, account[0])
+            await accountMenu(message, state, account[0])
+            await msg.delete()
         except errors.AuthError as e:
             await msg.edit_text("⚠ "+str(e))
         except Exception as e:
