@@ -1,3 +1,4 @@
+from psycopg2 import ProgrammingError, IntegrityError
 import psycopg2
 from config import DB_CONFIG
 
@@ -15,25 +16,45 @@ class InitDb():
         self.cursor = self.conn.cursor()
 
     async def execute(self, query, vars = None):
-        self.cursor.execute(query, vars)
-        self.conn.commit()
         try:
-            return self.cursor.fetchone()
-        except:
-            return None
+            with self.conn as conn:
+                with conn.cursor() as curs:
+                    try:
+                        curs.execute(query, vars)
+                        conn.commit()
+                        return curs.fetchone()
+                    except ProgrammingError as e:
+                        return None
+                    except IntegrityError as e:
+                        if hasattr(e, 'pgerror'):
+                            print("Ошибка выполнения запроса в базе данных: "+str(e))
+        except Exception as e:
+            raise e
 
     async def executeall(self, query, vars = None):
-        self.cursor.execute(query, vars)
-        self.conn.commit()
         try:
-            return self.cursor.fetchall()
-        except:
-            return None
+            with self.conn as conn:
+                with conn.cursor() as curs:
+                    curs.execute(query, vars)
+                    conn.commit()
+                    try:
+                        return curs.fetchall()
+                    except ProgrammingError as e:
+                        print(e)
+                        return None
+        except Exception as e:
+            raise e
 
     async def executemany(self, query, vars_list):
-        self.cursor.executemany(query, vars_list)
-        self.conn.commit()
         try:
-            return self.cursor.fetchmany()
-        except:
-            return None
+            with self.conn as conn:
+                with conn.cursor() as curs:
+                    curs.executemany(query, vars_list)
+                    conn.commit()
+                    try:
+                        return curs.fetchmany()
+                    except ProgrammingError as e:
+                        print(e)
+                        return None
+        except Exception as e:
+            raise e

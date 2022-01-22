@@ -30,8 +30,8 @@ class Account():
 
 class User():
     async def add(telegram_id, username, first_name, last_name, isOwner = False, BetaAccess = False, StartStatus = False):
-        await db.executemany(
-            "INSERT INTO public.users(telegram_id, username, first_name, last_name, is_owner, beta_access, welcome_message) VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING", [(telegram_id, username, first_name, last_name, isOwner, BetaAccess, StartStatus)])
+        await db.execute(
+            "INSERT INTO public.users(telegram_id, username, first_name, last_name, is_owner, beta_access, welcome_message) VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING", (telegram_id, username, first_name, last_name, isOwner, BetaAccess, StartStatus))
 
     # Возвращает данные пользователя по Telegram ID
     async def data(telegram_id):

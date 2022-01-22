@@ -1,3 +1,4 @@
+import tempfile
 from aiogram.dispatcher.filters import state
 from aiogram.types.callback_query import CallbackQuery
 from netschoolapi import NetSchoolAPI, errors
@@ -14,7 +15,7 @@ from aiogram.utils.callback_data import CallbackData
 from callbacks import cb_account
 import httpx, typing
 from functions import getAnnouncements, accountsCheck, accountMenu, ns_sessions, accountLogin
-from os import remove, path
+from os import remove, mkdir, path
 from urllib.parse import unquote
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='account_select'), state=selectAccount.select)
@@ -74,18 +75,15 @@ async def getAttachments(call: types.CallbackQuery, callback_data: dict, state: 
                     await file_msg.edit_text("📥 Загрузка документа")
                     response = await ns._request_with_optional_relogin("attachments/"+str(attachment['id']))
                     filename = unquote(str(response.headers.get('filename')))
-                    filepath = path.abspath("temp/"+filename)
-                    file = open(filepath, "wb")
-                    file.write(response.content)
-                    file.close()
-                    await file_msg.edit_text("📤 Отправка документа")
-                    await call.message.answer_document(document=types.InputFile(filepath))
-                    await file_msg.delete()
-                    remove(filepath)
+                    with tempfile.TemporaryDirectory() as directory, open("%s/%s" % (directory, filename), "wb") as file:
+                        file.write(response.content)
+                        await file_msg.edit_text("📤 Отправка документа")
+                        await call.message.answer_document(document=types.InputFile("%s/%s" % (directory, filename)))
+                        await file_msg.delete()
                 except Exception as e:
                     print("Ошибка при получении документа: "+str(e))
                     print("Аргументы: "+str(e.args))
-                    raise Exception("Unknown exception").with_traceback(e)
+                    raise e
     except (TypeError, KeyError) as e:
         await file_msg.edit_text("⚠️ Нет активных учётных записей")
     except IndexError as e:

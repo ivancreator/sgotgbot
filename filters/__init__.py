@@ -31,9 +31,11 @@ class Main(Filter):
                 f"SELECT is_owner, beta_access FROM users WHERE telegram_id = {message.from_user.id}")
             if response[0] or response[1]:
                 return True
+            else:
+                return True
         else:
             await userAdd(message)
-            return False
+            return True
 
 async def userAdd(message):
     user = message.from_user
