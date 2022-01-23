@@ -19,50 +19,56 @@ async def select_login_handler(call: types.CallbackQuery, callback_data: dict, s
 @dp.callback_query_handler(Main(), cb_account.filter(action='select_scid'), state=addAccount.scid)
 async def select_sft_handler(call: types.CallbackQuery, callback_data: dict, state=FSMContext):
     await call.answer()
-    account_id = await Account.get_registerAccount(call.from_user.id, 'id')
-    ns = ns_sessions[account_id]
-    ns._login_data['scid'] = callback_data.get('value')
-    await schoolInfo(call.message, account_id)
+    account = await Account.get_registerAccount(call.from_user.id)
+    ns = ns_sessions[account['id']]
+    ns._prelogin_data['scid'] = callback_data.get('value')
+    await Account.update(account['id'], **ns._prelogin_data)
+    await schoolInfo(call.message, account['id'])
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='select_sft'), state=[addAccount.sft, '*'])
 async def select_sft_handler(call: types.CallbackQuery, callback_data: dict, state=FSMContext):
-    account_id = await Account.get_registerAccount(call.from_user.id, 'id')
-    ns = ns_sessions[account_id]
-    ns._login_data['sft'] = callback_data.get('value')
+    account = await Account.get_registerAccount(call.from_user.id)
+    ns = ns_sessions[account['id']]
+    ns._prelogin_data['sft'] = callback_data.get('value')
+    await Account.update(account['id'], **ns._prelogin_data)
     await call.answer()
-    await scidSelect(call.message, account_id)
+    await scidSelect(call.message, account['id'])
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='select_cn'), state=addAccount.cn)
 async def select_cn_handler(call: types.CallbackQuery, callback_data: dict, state=FSMContext):
-    account_id = await Account.get_registerAccount(call.from_user.id, 'id')
-    ns = ns_sessions[account_id]
-    ns._login_data['cn'] = callback_data.get('value')
+    account = await Account.get_registerAccount(call.from_user.id)
+    ns = ns_sessions[account['id']]
+    ns._prelogin_data['cn'] = callback_data.get('value')
+    await Account.update(account['id'], **ns._prelogin_data)
     await call.answer()
-    await sftSelect(call.message, account_id)
+    await sftSelect(call.message, account['id'])
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='select_pid'), state=addAccount.pid)
 async def select_pid_handler(call: types.CallbackQuery, callback_data: dict, state=FSMContext):
-    account_id = await Account.get_registerAccount(call.from_user.id, 'id')
-    ns = ns_sessions[account_id]
-    ns._login_data['pid'] = callback_data.get('value')
+    account = await Account.get_registerAccount(call.from_user.id)
+    ns = ns_sessions[account['id']]
+    ns._prelogin_data['pid'] = callback_data.get('value')
+    await Account.update(account['id'], **ns._prelogin_data)
     await call.answer()
-    await cnSelect(call.message, account_id)
+    await cnSelect(call.message, account['id'])
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='select_sid'), state=addAccount.sid)
 async def select_sid_handler(call: types.CallbackQuery, callback_data: dict, state=FSMContext):
-    account_id = await Account.get_registerAccount(call.from_user.id, 'id')
-    ns = ns_sessions[account_id]
-    ns._login_data['sid'] = callback_data.get('value')
+    account = await Account.get_registerAccount(call.from_user.id)
+    ns = ns_sessions[account['id']]
+    ns._prelogin_data['sid'] = callback_data.get('value')
+    await Account.update(account['id'], **ns._prelogin_data)
     await call.answer()
-    await pidSelect(call.message, account_id)
+    await pidSelect(call.message, account['id'])
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='select_cid'), state=addAccount.cid)
 async def select_cid_handler(call: types.CallbackQuery, callback_data: dict, state=FSMContext):
-    account_id = await Account.get_registerAccount(call.from_user.id, 'id')
-    ns = ns_sessions[account_id]
-    ns._login_data['cid'] = callback_data.get('value')
+    account = await Account.get_registerAccount(call.from_user.id, 'id')
+    ns = ns_sessions[account['id']]
+    ns._prelogin_data['cid'] = callback_data.get('value')
+    await Account.update(account['id'], **ns._prelogin_data)
     await call.answer()
-    await sidSelect(call.message, account_id)
+    await sidSelect(call.message, account['id'])
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='add', value=''), state=[addAccount.url, addAccount.wait_url, '*'])
 async def account_add(call: types.CallbackQuery, state=FSMContext):
@@ -86,10 +92,10 @@ async def account_add(call: types.CallbackQuery, state=FSMContext):
 @dp.callback_query_handler(Main(), cb_account.filter(action='region_select'), state=['*'])
 async def regionSelect(call: types.CallbackQuery, callback_data: dict):
     region = await db.execute("SELECT url FROM regions WHERE id = %s", [callback_data['value']])
-    account_id = await Account.add(call.from_user.id, region[0])
+    account = await Account.add(call.from_user.id, region[0])
     await addAccount.cid.set()
-    ns_sessions[account_id] = NetSchoolAPI(region[0])
-    await cidSelect(account_id, call.message)
+    ns_sessions[account['id']] = NetSchoolAPI(region[0])
+    await cidSelect(account['id'], call.message)
     
 
 async def nsSelect(message: types.Message):
@@ -137,31 +143,35 @@ async def account_continueAdd(call: types.CallbackQuery, callback_data: dict, st
     account = await Account.get_registerAccount(call.from_user.id)
     ns = NetSchoolAPI(account['url'])
     ns_sessions[account['id']] = ns
+    regions = await db.execute("SELECT * FROM regions")
     for key in account.items():
-        if not key[1]:
+        if key[1]:
+            ns._prelogin_data.update({key[0]: key[1]})
+        else:
             if key[0] == 'cid':
-                ns._login_data.update({'cid': key[0]})
                 await cidSelect(account['id'], call.message)
+                break
             elif key[0] == 'sid':
-                ns._login_data.update({'sid': key[0]})
                 await sidSelect(call.message, account['id'])
+                break
             elif key[0] == 'pid':
-                ns._login_data.update({'pid': key[0]})
                 await pidSelect(call.message, account['id'])
+                break
             elif key[0] == 'cn':
-                ns._login_data.update({'cn': key[0]})
                 await cnSelect(call.message, account['id'])
+                break
             elif key[0] == 'sft':
-                ns._login_data.update({'sft': key[0]})
                 await sftSelect(call.message, account['id'])
+                break
             elif key[0] == 'scid':
-                ns._login_data.update({'scid': key[0]})
                 await scidSelect(call.message, account['id'])
+                break
             elif key[0] == 'username':
-                ns._login_data.update({'username': key[0]})
-                await getloginState(call.message, state)
+                await schoolInfo(call.message, account['id'])
+                break
             elif key[0] == 'password':
-                ns._login_data.update({'password': key[0]})
-                await getpasswordState(call.message, state)
+                await schoolInfo(call.message, account['id'])
+                break
             else:
-                await nsSelect(call.message)
+                await account_add(call, state)
+                break

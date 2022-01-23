@@ -53,12 +53,15 @@ async def accountsList(message: types.Message, state: FSMContext):
                     display_name += " ({})".format(account['class_name'])
             markup.add(types.InlineKeyboardButton(display_name, callback_data=cb_account.new(action='select', value=str(account['id']))))
     if register_account:
+        text = "➕Нажмите на соответствующую кнопку чтобы добавить данные для входа в учётную запись Сетевого Города"
         markup.row(types.InlineKeyboardButton(
-            '▶️ Продолжить добавление', callback_data=cb_account.new(action='continue', value=account['id'])))
+            '➕ Добавить учётную запись', callback_data=cb_account.new(action='continue', value=account['id'])))
+            # '▶️ Продолжить добавление', callback_data=cb_account.new(action='continue', value=account['id'])))
     else:
+        text = "📃 Выберите учётную запись"
         markup.row(types.InlineKeyboardButton(
             '➕ Добавить учётную запись', callback_data=cb_account.new(action='add', value='')))
-    await message.answer("📃 Выберите учётную запись", reply_markup=markup)
+    await message.answer(text, reply_markup=markup)
 
 async def admin_menu(message: types.Message):
     users = await db.executeall("SELECT * FROM users")
@@ -106,13 +109,13 @@ async def sendAnnouncements(message: types.Message, ns: NetSchoolAPI, state):
 
 async def schoolInfo(message: types.Message, account_id: int):
     ns = ns_sessions[account_id]
-    data = ns._login_data
-    school_info = await ns._client.get("schools/"+data['scid']+"/card")
+    data = ns._prelogin_data
+    school_info = await ns._client.get("schools/"+str(data['scid'])+"/card")
     markup = types.InlineKeyboardMarkup()
     if school_info.status_code == 200:
         school = school_info.json()
         markup.add(types.InlineKeyboardButton(
-            "🔐 Войти", callback_data=cb_account.new(action='select_login', value=data['scid'])))
+            "🔐 Войти", callback_data=cb_account.new(action='login', value=data['scid'])))
         text_schoolInfo = ""
         if school["commonInfo"]["schoolName"]:
             text_schoolInfo += "🏫 "+school["commonInfo"]["schoolName"]+" ("+school["commonInfo"]["status"]+")"
@@ -140,7 +143,7 @@ async def getpasswordState(message: types.Message, state: FSMContext):
 
 async def scidSelect(message: types.Message, account_id: int):
     ns = ns_sessions[account_id]
-    data = ns._login_data
+    data = ns._prelogin_data
     response = await ns._client.get("loginform?cid="+str(data['cid'])+"&sid="+str(data['sid'])+"&pid="+str(data['pid'])+"&cn="+str(data['cn'])+"&sft="+str(data['sft'])+"&LASTNAME=sft")
     schools = response.json()["items"]
     if len(schools) >= 2:
@@ -154,13 +157,13 @@ async def scidSelect(message: types.Message, account_id: int):
             markup.add(types.InlineKeyboardButton(x['name'][:38], callback_data=cb_account.new(action='select_scid', value=x['id'])))
         await message.edit_text("🏫 Выберите образовательную огранизацию", reply_markup=markup)
     else:
-        ns._login_data['cn'] = schools[0]['id']
-        await Account.update(account_id, **ns._login_data)
+        ns._prelogin_data['cn'] = schools[0]['id']
+        await Account.update(account_id, **ns._prelogin_data)
         await schoolInfo(message, account_id)
 
 async def sftSelect(message: types.Message, account_id: int):
     ns = ns_sessions[account_id]
-    data = ns._login_data
+    data = ns._prelogin_data
     response = await ns._client.get("loginform?cid="+str(data['cid'])+"&sid="+str(data['sid'])+"&pid="+str(data['pid'])+"&cn="+str(data['cn'])+"&LASTNAME=cn")
     funcs = response.json()["items"]
     if len(funcs) >= 2:
@@ -170,13 +173,13 @@ async def sftSelect(message: types.Message, account_id: int):
             markup.add(types.InlineKeyboardButton(x['name'], callback_data=cb_account.new(action='select_sft', value=x['id'])))
         await message.edit_text("🎒 Выберите тип образовательной огранизации", reply_markup=markup)
     else:
-        ns._login_data['sft'] = funcs[0]['id']
-        await Account.update(account_id, **ns._login_data)
+        ns._prelogin_data['sft'] = funcs[0]['id']
+        await Account.update(account_id, **ns._prelogin_data)
         await scidSelect(message, account_id)
 
 async def cnSelect(message: types.Message, account_id: int):
     ns = ns_sessions[account_id]
-    data = ns._login_data
+    data = ns._prelogin_data
     response = await ns._client.get("loginform?cid="+str(data['cid'])+"&sid="+str(data['sid'])+"&pid="+str(data['pid'])+"&LASTNAME=pid")
     cities = response.json()["items"]
     if len(cities) >= 2:
@@ -186,13 +189,13 @@ async def cnSelect(message: types.Message, account_id: int):
             markup.add(types.InlineKeyboardButton(x['name'], callback_data=cb_account.new(action='select_cn', value=x['id'])))
         await message.edit_text("🏙 Выберите населённый пункт", reply_markup=markup)
     else:
-        ns._login_data['cn'] = cities[0]['id']
-        await Account.update(account_id, **ns._login_data)
+        ns._prelogin_data['cn'] = cities[0]['id']
+        await Account.update(account_id, **ns._prelogin_data)
         await sftSelect(message, account_id)
 
 async def pidSelect(message: types.Message, account_id):
     ns = ns_sessions[account_id]
-    data = ns._login_data
+    data = ns._prelogin_data
     response = await ns._client.get("loginform?cid="+str(data['cid'])+"&sid="+str(data['sid'])+"&LASTNAME=sid")
     provinces = response.json()["items"]
     if len(provinces) >= 2:
@@ -202,13 +205,13 @@ async def pidSelect(message: types.Message, account_id):
             markup.add(types.InlineKeyboardButton(x['name'], callback_data=cb_account.new(action='select_pid', value=x['id'])))
         await message.edit_text("🌆 Выберите городской округ или муниципальный район", reply_markup=markup)
     else:
-        ns._login_data['pid'] = provinces[0]['id']
-        await Account.update(account_id, **ns._login_data)
+        ns._prelogin_data['pid'] = provinces[0]['id']
+        await Account.update(account_id, **ns._prelogin_data)
         await cnSelect(message, account_id)
 
 async def sidSelect(message: types.Message, account_id):
     ns = ns_sessions[account_id]
-    data = ns._login_data
+    data = ns._prelogin_data
     response = await ns._client.get("loginform?cid="+str(data['cid'])+"&LASTNAME=cid")
     states = response.json()["items"]
     if len(states) >= 2:
@@ -218,8 +221,8 @@ async def sidSelect(message: types.Message, account_id):
             markup.add(types.InlineKeyboardButton(x['name'], callback_data=cb_account.new(action='select_sid', value=x['id'])))
         await message.edit_text("🌇 Выберите регион", reply_markup=markup)
     else:
-        ns._login_data['sid'] = states[0]['id']
-        await Account.update(account_id, **ns._login_data)
+        ns._prelogin_data['sid'] = states[0]['id']
+        await Account.update(account_id, **ns._prelogin_data)
         await pidSelect(message, account_id)
 
 async def cidSelect(account_id: int, bemessage: types.Message):
@@ -233,6 +236,6 @@ async def cidSelect(account_id: int, bemessage: types.Message):
             markup.add(types.InlineKeyboardButton(x['name'], callback_data=cb_account.new(action='select_cid', value=x['id'])))
         await bemessage.edit_text("🏳️ Выберите страну", reply_markup=markup)
     else:
-        ns._login_data['cid'] = countries[0]['id']
-        await Account.update(account_id, **ns._login_data)
+        ns._prelogin_data['cid'] = countries[0]['id']
+        await Account.update(account_id, **ns._prelogin_data)
         await sidSelect(bemessage, account_id)

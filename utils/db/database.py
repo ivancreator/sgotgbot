@@ -24,7 +24,11 @@ class InitDb():
                     try:
                         return curs.fetchone()
                     except ProgrammingError as e:
-                        return None
+                        if hasattr(e, 'args'):
+                            if 'no results to fetch' in e.args:
+                                return None
+                        raise e
+
                     except IntegrityError as e:
                         if hasattr(e, 'pgerror'):
                             print("Ошибка выполнения запроса в базе данных: "+str(e))

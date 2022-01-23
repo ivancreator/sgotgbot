@@ -36,9 +36,9 @@ async def accountsList(call: types.CallbackQuery, callback_data: dict, state: FS
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='select_confirm'), state=selectAccount.select)
 async def accountselectConfirm(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
-    account_id = callback_data['value']
+    account_id = int(callback_data['value'])
     account = await db.execute("SELECT telegram_id FROM accounts WHERE id = %s", [account_id])
-    if call.from_user.id == account['id']:
+    if call.from_user.id == account['telegram_id']:
         await call.answer()
         await call.message.edit_text("🕐 Выполняется вход в учётную запись")
         try:
@@ -47,7 +47,7 @@ async def accountselectConfirm(call: types.CallbackQuery, callback_data: dict, s
             raise e
         else:
             ns = ns_sessions[account_id]
-            await accountMenu(call.message, state, ns)
+            await accountMenu(call.message, state)
             await call.message.delete()
     else:
         await call.answer("⚠ Это учётная запись принадлежит другому пользователю")

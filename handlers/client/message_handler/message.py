@@ -66,32 +66,34 @@ async def getLogin(message: types.Message, state: FSMContext):
     data = await state.get_data()
     msg = data["message"]
     await msg.edit_text("🔑 Введите пароль")
-    account_id = await Account.get_registerAccount(message.from_user.id, select='id')
-    ns = ns_sessions[account_id]
-    ns._login_data['username'] = message.text
+    account = await Account.get_registerAccount(message.from_user.id)
+    ns = ns_sessions[account['id']]
+    ns._prelogin_data['username'] = message.text
+    await Account.update(account['id'], **ns._prelogin_data)
     await message.delete()
     await addAccount.password.set()
 
-async def add(message: types.Message, state: FSMContext, fail: str = None):
-    data = await state.get_data()
-    markup = types.InlineKeyboardMarkup()
-    # markup.add(types.InlineKeyboardButton("◀️ Вернуться",
-    #            callback_data=cb_account.new(action='select_sft', value=data['sft'])))
-    if fail == "AuthError":
-        await message.edit_text("❗️ Не верные данные, повторите попытку.\n👤 Введите имя пользователя", reply_markup=markup)
-    elif fail == "UnknownError":
-        await message.edit_text("❗️ Возникла неожиданная ошибка, попробуйте позже", reply_markup=markup)
-        await state.reset_state(with_data=True)
-    else:
-        await message.edit_text("👤 Введите имя пользователя", reply_markup=markup)
-    async with state.proxy() as data:
-        data["message"] = message
-    await addAccount.login.set()
+# async def add(message: types.Message, state: FSMContext, fail: str = None):
+#     data = await state.get_data()
+#     markup = types.InlineKeyboardMarkup()
+#     # markup.add(types.InlineKeyboardButton("◀️ Вернуться",
+#     #            callback_data=cb_account.new(action='select_sft', value=data['sft'])))
+#     if fail == "AuthError":
+#         await message.edit_text("❗️ Не верные данные, повторите попытку.\n👤 Введите имя пользователя", reply_markup=markup)
+#     elif fail == "UnknownError":
+#         await message.edit_text("❗️ Возникла неожиданная ошибка, попробуйте позже", reply_markup=markup)
+#         await state.reset_state(with_data=True)
+#     else:
+#         await message.edit_text("👤 Введите имя пользователя", reply_markup=markup)
+#     async with state.proxy() as data:
+#         data["message"] = message
+#     await addAccount.login.set()
 
 async def checkData(message: types.Message, msg: types.Message, state):
-    account_id = await Account.get_registerAccount(message.from_user.id, select='id')
+    account = await Account.get_registerAccount(message.from_user.id)
+    account_id = account['id']
     ns = ns_sessions[account_id]
-    data = ns._login_data
+    data = ns._prelogin_data
     response = await ns._client.get("schools/" +
                          str(data['scid'])+"/card")
     if response.status_code == 200:
@@ -103,12 +105,12 @@ async def checkData(message: types.Message, msg: types.Message, state):
             nickname = str(init.json()['students'][0]['nickName'])
             default_display_name = nickname + " ("+ school_name +")"
             data = {
-                **ns._login_data,
+                **ns._prelogin_data,
+                'status': 'active',
                 'nickname': nickname,
                 'school_name': school_name,
                 'display_name': default_display_name
             }
-            ns._login_data = {}
             await Account.update(account_id, **data)
             await accountMenu(message, state)
             await msg.delete()
@@ -128,8 +130,9 @@ async def checkData(message: types.Message, msg: types.Message, state):
 async def getPassword(message: types.Message, state: FSMContext):
     await state.update_data(password=message.text)
     data = await state.get_data()
-    account_id = await Account.get_registerAccount(message.from_user.id, select='id')
-    ns = ns_sessions[account_id]
-    ns._login_data['username'] = message.text
+    account = await Account.get_registerAccount(message.from_user.id)
+    ns = ns_sessions[account['id']]
+    ns._prelogin_data['password'] = message.text
+    await Account.update(account['id'], **ns._prelogin_data)
     await message.delete()
     await checkData(message, data["message"], state)

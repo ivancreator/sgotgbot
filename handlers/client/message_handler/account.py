@@ -15,9 +15,9 @@ from utils.db.data import Account, db
 async def announcements(message: types.Message, state: FSMContext):
     wait_message = await message.answer("🕐 Немного подождите")
     await message.delete()
-    accounts = await Account.get_activeAccounts(message.from_user.id, 'id, alert')
+    accounts = await Account.get_activeAccounts(message.from_user.id)
     account = accounts[0]
-    account_id = account[0]
+    account_id = account['id']
     ns = ns_sessions[account_id]
     await sendAnnouncements(message, ns, state)
     await wait_message.delete()
@@ -25,10 +25,10 @@ async def announcements(message: types.Message, state: FSMContext):
 @dp.message_handler(Main(), text="⚙️ Настройки", state=selectAccount.menu)
 @dp.throttled(anti_flood, rate=3)
 async def setting(message: types.Message, state: FSMContext):
-    accounts = await Account.get_activeAccounts(message.from_user.id, 'id, alert')
+    accounts = await Account.get_activeAccounts(message.from_user.id)
     account = accounts[0]
-    account_id = account[0]
-    if account[1]:
+    account_id = account['id']
+    if account['alert']:
         await db.execute("UPDATE accounts SET alert = False WHERE id = %s", [account_id])
         await message.answer("🔕 Уведомления отключены")
     else:
@@ -44,7 +44,7 @@ async def exit(message: types.Message, state: FSMContext):
     await message.delete()
     accounts = await Account.get_activeAccounts(message.from_user.id)
     account = accounts[0]
-    account_id = account[0]
+    account_id = account['id']
     await Account.logout(account_id)
     data = await state.get_data()
     await data['message'].delete()

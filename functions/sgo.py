@@ -39,9 +39,9 @@ async def accountLogin(account_id, message=None):
             raise errors.AuthError("Нет данных для входа")
     except (KeyError, errors.AuthError) as e:
         try:
-            account = await db.execute("SELECT url, cid, sid, pid, cn, sft, scid, login, password, chat_id, display_name FROM accounts WHERE id = %s" % account_id)
-            ns = NetSchoolAPI(account[0])
-            await ns.login(account[1], account[2], account[3], account[4], account[5], account[6], account[7], account[8])
+            account = await db.execute("SELECT url, cid, sid, pid, cn, sft, scid, username, password, chat_id, display_name FROM accounts WHERE id = %s", [account_id])
+            ns = NetSchoolAPI(account['url'])
+            await ns.login(account['cid'], account['sid'], account['pid'], account['cn'], account['sft'], account['scid'], account['username'], account['password'])
             ns_sessions[account_id] = ns
             await db.execute("UPDATE accounts SET status = 'active' WHERE id = %s", [account_id])
             return ns
@@ -62,7 +62,7 @@ async def accountLogin(account_id, message=None):
                 await message.edit_text("⚠️ "+str(e))
             await log.write(str(account_id), "Обработанная ошибка входа во время запроса: "+str(e))
             await db.execute("UPDATE accounts SET alert = False, status = 'inactive' WHERE id = %s", [account_id])
-            await bot.send_message(account[9], "⚠️ Ошибка входа в учётную запись %s, функция уведомлений отключена.\nПодробности: %s" % [str(account[10]), str(e)])
+            await bot.send_message(account['chat_id'], "⚠️ Ошибка входа в учётную запись %s, функция уведомлений отключена.\nПодробности: %s" % [str(account['display_name']), str(e)])
             raise e
         except Exception as e:
             if message:
@@ -152,14 +152,14 @@ async def reStore():
     accounts = await db.executeall("SELECT id, alert, chat_id FROM accounts WHERE status = 'active'")
     for account in accounts:
         try:
-            ns = await accountLogin(account[0])
-            if account[1]:
-                await add_checkThread(account[0], ns)
+            ns = await accountLogin(account['id'])
+            if account['alert']:
+                await add_checkThread(account['id'], ns)
             print(account)
-            await asyncio.sleep(0.5)
+            # await asyncio.sleep(0.5)
         except Exception as e:
             await log.write("ОШИБКА", "Неожиданная ошибка при восстановлении сессии в СГО ("+str(e)+")")
-            await bot.send_message(account[2], "❗️ Неожиданная ошибка при восстановлении сессии")
+            await bot.send_message(account['chat_id'], "❗️ Неожиданная ошибка при восстановлении сессии")
 
 async def closeAll():
     await log.close()
@@ -174,40 +174,40 @@ async def closeAll():
 
 async def checkNew(account_id, ns: NetSchoolAPI):
     try:
-        account = await db.execute("SELECT id, alert, chat_id FROM accounts WHERE id = %s", [account_id])
+        account = await db.execute("SELECT id, alert, chat_id, display_name FROM accounts WHERE id = %s", [account_id])
         old_data = [announcemet async for announcemet in getAnnouncements(ns, take=-1)]
-        while account[1]:
-            account = await db.execute("SELECT id, alert, chat_id FROM accounts WHERE id = %s", [account_id])
+        while account['id']:
+            account = await db.execute("SELECT id, alert, chat_id, display_name FROM accounts WHERE id = %s", [account_id])
             if account:
                 try:
-                    await log.write(account[0], "Check announcement updates")
+                    await log.write(account['id'], "Check announcement updates")
                     new_data = [announcemet async for announcemet in getAnnouncements(ns, take=-1)]
                     if new_data != old_data:
-                        await log.write(account[0], "Find the announcement updates")
+                        await log.write(account['id'], "Find the announcement updates")
                         new_objects = await getNew(tuple(old_data), tuple(new_data))
                         if new_objects:
-                            await log.write(account[0], "Find the new announcement")
+                            await log.write(account['id'], "Find the new announcement")
                             for new in new_objects:
-                                await sendAnnouncement(account[2], new)
+                                await sendAnnouncement(account['chat_id'], new)
                         old_data = new_data
                 except httpx.HTTPError as e:
                     await bot.send_message(account[2], "⚠ Ошибка подключения при получении объявлений")
-                    await log.write(str(account[0]), "Ошибка подключения: " + str(e))
-                    await log.write(str(account[0]), "Аргументы: " + str(e.args))
+                    await log.write(str(account['id']), "Ошибка подключения: " + str(e))
+                    await log.write(str(account['id']), "Аргументы: " + str(e.args))
                     if hasattr(e, 'request'):
-                        await log.write(str(account[0]), "Запрос: " + str(e.request))
+                        await log.write(str(account['id']), "Запрос: " + str(e.request))
                     if hasattr(e, 'response'):
-                        await log.write(str(account[0]), "Ответ: " + str(e.response))
+                        await log.write(str(account['id']), "Ответ: " + str(e.response))
                     continue
                 finally:
                     await asyncio.sleep(latency)
             else:
                 break
     except errors.AuthError as e:
-        await bot.send_message(account[2], "⚠️ Ошибка входа в учётную запись "+str(account[12])+", функция уведомлений отключена.")
-        await log.write(str(account[0]), "Обработанная ошибка входа во время запроса: "+str(e))
-        await db.execute("UPDATE accounts SET alert = False WHERE id = %s", [account[0]])
+        await bot.send_message(account['chat_id'], "⚠️ Ошибка входа в учётную запись "+str(account['display_name'])+", функция уведомлений отключена.")
+        await log.write(str(account['id']), "Обработанная ошибка входа во время запроса: "+str(e))
+        await db.execute("UPDATE accounts SET alert = False WHERE id = %s", [account['id']])
     except Exception as e:
-        await log.write(str(account[0]), "НЕОЖИДАННОЕ ИСКЛЮЧЕНИЕ: "+str(e))
-        await bot.send_message(account[2], "❗️ Неожиданная ошибка при получении объявлений")
+        await log.write(str(account['id']), "НЕОЖИДАННОЕ ИСКЛЮЧЕНИЕ: "+str(e))
+        await bot.send_message(account['chat_id'], "❗️ Неожиданная ошибка при получении объявлений")
         raise Exception("Unknown exception") from e

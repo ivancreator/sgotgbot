@@ -33,6 +33,7 @@ class Account():
         [*kwargs.values()])
 
     async def update(account_id: int, **kwargs):
+        kwargs.update({'id': account_id})
         return await db.execute(sql.SQL("UPDATE accounts SET ({columns}) = ({values}) WHERE id = %s").format(
             columns=sql.SQL(', ').join(map(sql.Identifier, kwargs.keys())),
             values=sql.SQL(', ').join(sql.Placeholder() * len(kwargs))
