@@ -37,10 +37,27 @@ async def accountsList(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['usermsg'] = message
     markup = types.InlineKeyboardMarkup()
-    for x in accounts_data:
-        markup.add(types.InlineKeyboardButton(x[12], callback_data=cb_account.new(action='account_select', value=str(x[0]))))
-    markup.row(types.InlineKeyboardButton(
-        '➕ Добавить учётную запись', callback_data=cb_account.new(action='add', value='')))
+    register_account = None
+    for account in accounts_data:
+        if account['status'] == 'register':
+            register_account = account
+        else:
+            display_name = "Без названия"
+            if account['display_name']:
+                display_name = account['display_name']
+            elif account['nickname']:
+                display_name = account['nickname']
+                if account['school_name']:
+                    display_name += " {}".format(account['school_name'])
+                elif account['class_name']:
+                    display_name += " ({})".format(account['class_name'])
+            markup.add(types.InlineKeyboardButton(display_name, callback_data=cb_account.new(action='select', value=str(account['id']))))
+    if register_account:
+        markup.row(types.InlineKeyboardButton(
+            '▶️ Продолжить добавление', callback_data=cb_account.new(action='continue', value=account['id'])))
+    else:
+        markup.row(types.InlineKeyboardButton(
+            '➕ Добавить учётную запись', callback_data=cb_account.new(action='add', value='')))
     await message.answer("📃 Выберите учётную запись", reply_markup=markup)
 
 async def admin_menu(message: types.Message):
@@ -95,7 +112,7 @@ async def schoolInfo(message: types.Message, account_id: int):
     if school_info.status_code == 200:
         school = school_info.json()
         markup.add(types.InlineKeyboardButton(
-            "🔐 Войти", callback_data=cb_account.new(action='login_select', value=data['scid'])))
+            "🔐 Войти", callback_data=cb_account.new(action='select_login', value=data['scid'])))
         text_schoolInfo = ""
         if school["commonInfo"]["schoolName"]:
             text_schoolInfo += "🏫 "+school["commonInfo"]["schoolName"]+" ("+school["commonInfo"]["status"]+")"

@@ -18,7 +18,7 @@ async def start(message: types.Message, state: FSMContext):
     if not user:
         await userAdd(message)
         user = await User.data(message.from_user.id)
-    if not user[7]:
+    if not user['welcome_message']:
         await message.answer('👋 Приветствую, пользователь Сетевого Города. Образование. Это бот "Сетевой Город. Объявления"\n\n⚠️ Данный бот не имеет никакого отношения к компании ИрТех и не является партнёром данной компании.\n\n👉 Данный бот создан для\n📢 Просмотра списка объявлений с возможностью\n🛎 Уведомления о новых объявлениях и прикреплённых к ним файлов\n\n🛡 Для использования данного бота потребуется вход в систему "Сетевой Город. Образование" под своей учётной записью')
         await db.execute(f"UPDATE users SET welcome_message = True WHERE telegram_id = {message.from_user.id}")
         await message.delete()
@@ -33,14 +33,14 @@ async def userConnect(message: types.Message, state: FSMContext):
     ns = NetSchoolAPI(str(message.text))
     url = ns._url
     try:
-        response = ns._client.get(url)
+        response = await ns._client.get(url)
         if response.status_code == 200:
             data = await state.get_data()
             bemessage = data["message"]
-            await message.delete()
             account_id = await Account.add(message.from_user.id, url)
             ns_sessions[account_id] = ns
             await addAccount.cid.set()
+            await message.delete()
             await cidSelect(account_id, bemessage)
         else:
             await message.reply("Ошибка обработки запроса ("+str(response.status_code)+")")
@@ -120,7 +120,7 @@ async def checkData(message: types.Message, msg: types.Message, state):
         except Exception as e:
             await state.reset_state(with_data=True)
             markup = types.InlineKeyboardMarkup()
-            markup.add(types.InlineKeyboardButton("🏠 Вернуться в начало", callback_data=cb_account.new(action='accounts_list', value='')))
+            markup.add(types.InlineKeyboardButton("🏠 Вернуться в начало", callback_data=cb_account.new(action='list', value='')))
             print("Ошибка при входе в СГО: " + str(e))
             await msg.edit_text("❗️ Возникла неожиданная ошибка, попробуйте ещё раз")
 

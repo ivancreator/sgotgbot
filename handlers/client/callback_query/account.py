@@ -10,16 +10,16 @@ from functions import getAnnouncements, accountsCheck, accountMenu, ns_sessions,
 from urllib.parse import unquote
 from utils.db.data import Account
 
-@dp.callback_query_handler(Main(), cb_account.filter(action='account_select'), state=selectAccount.select)
-async def accountSelect(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
+@dp.callback_query_handler(Main(), cb_account.filter(action='select'), state=selectAccount.select)
+async def accountSelect(call: types.CallbackQuery, callback_data: dict):
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🔐 Войти", callback_data=cb_account.new(action='account_selectConfirm', value=callback_data['value'])))
-    markup.add(types.InlineKeyboardButton("🗑 Удалить", callback_data=cb_account.new(action='account_remove', value=callback_data['value'])))
-    markup.add(types.InlineKeyboardButton("◀️ Вернуться", callback_data=cb_account.new(action='accounts_list', value='')))
+    markup.add(types.InlineKeyboardButton("🔐 Войти", callback_data=cb_account.new(action='select_confirm', value=callback_data['value'])))
+    markup.add(types.InlineKeyboardButton("🗑 Удалить", callback_data=cb_account.new(action='remove', value=callback_data['value'])))
+    markup.add(types.InlineKeyboardButton("◀️ Вернуться", callback_data=cb_account.new(action='list', value='')))
     await call.answer()
     await call.message.edit_text("✴️ Выберите действие", reply_markup=markup)
 
-@dp.callback_query_handler(Main(), cb_account.filter(action='account_remove'), state=[selectAccount.select, selectAccount.menu])
+@dp.callback_query_handler(Main(), cb_account.filter(action='remove'), state=[selectAccount.select, selectAccount.menu])
 async def accountRemove(call: types.CallbackQuery(), callback_data: dict, state: FSMContext):
     data = await state.get_data()
     await db.execute(f"DELETE FROM accounts WHERE id = {callback_data['value']}")
@@ -27,18 +27,18 @@ async def accountRemove(call: types.CallbackQuery(), callback_data: dict, state:
     await accountsCheck(data['usermsg'], state)
     await call.message.delete()
 
-@dp.callback_query_handler(Main(), cb_account.filter(action='accounts_list'), state=['*', selectAccount.select])
+@dp.callback_query_handler(Main(), cb_account.filter(action='list'), state=['*', selectAccount.select])
 async def accountsList(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
     data = await state.get_data()
     await call.answer()
     await accountsCheck(data['usermsg'], state)
     await call.message.delete()
 
-@dp.callback_query_handler(Main(), cb_account.filter(action='account_selectConfirm'), state=selectAccount.select)
+@dp.callback_query_handler(Main(), cb_account.filter(action='select_confirm'), state=selectAccount.select)
 async def accountselectConfirm(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
     account_id = callback_data['value']
     account = await db.execute("SELECT telegram_id FROM accounts WHERE id = %s", [account_id])
-    if call.from_user.id == account[0]:
+    if call.from_user.id == account['id']:
         await call.answer()
         await call.message.edit_text("🕐 Выполняется вход в учётную запись")
         try:
@@ -52,7 +52,7 @@ async def accountselectConfirm(call: types.CallbackQuery, callback_data: dict, s
     else:
         await call.answer("⚠ Это учётная запись принадлежит другому пользователю")
         
-@dp.callback_query_handler(Main(), cb_account.filter(action='getFile'), state=['*'])
+@dp.callback_query_handler(Main(), cb_account.filter(action='get_file'), state=['*'])
 async def getAttachments(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
     try:
         await call.answer()

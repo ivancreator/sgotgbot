@@ -1,5 +1,6 @@
 from psycopg2 import ProgrammingError, IntegrityError
 import psycopg2
+import psycopg2.extras
 from config import DB_CONFIG
 
 # def run_and_get(coroutine):
@@ -13,30 +14,29 @@ class InitDb():
 
     def __init__(self, *args, **kwargs):
         self.conn = psycopg2.connect(host=DB_CONFIG['host'], user=DB_CONFIG['user'], dbname=DB_CONFIG['db'], password=DB_CONFIG['password'])
-        self.cursor = self.conn.cursor()
+        self.conn.autocommit = True
 
     async def execute(self, query, vars = None):
         try:
             with self.conn as conn:
-                with conn.cursor() as curs:
+                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as curs:
+                    curs.execute(query, vars)
                     try:
-                        curs.execute(query, vars)
-                        conn.commit()
                         return curs.fetchone()
                     except ProgrammingError as e:
                         return None
                     except IntegrityError as e:
                         if hasattr(e, 'pgerror'):
                             print("Ошибка выполнения запроса в базе данных: "+str(e))
+                        raise e
         except Exception as e:
             raise e
 
     async def executeall(self, query, vars = None):
         try:
             with self.conn as conn:
-                with conn.cursor() as curs:
+                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as curs:
                     curs.execute(query, vars)
-                    conn.commit()
                     try:
                         return curs.fetchall()
                     except ProgrammingError as e:
@@ -48,9 +48,8 @@ class InitDb():
     async def executemany(self, query, vars_list):
         try:
             with self.conn as conn:
-                with conn.cursor() as curs:
+                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as curs:
                     curs.executemany(query, vars_list)
-                    conn.commit()
                     try:
                         return curs.fetchmany()
                     except ProgrammingError as e:

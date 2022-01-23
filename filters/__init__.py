@@ -16,7 +16,7 @@ class Main(Filter):
         if await User.data(message.from_user.id):
             response = await db.execute(
                 f"SELECT is_owner, beta_access FROM users WHERE telegram_id = {message.from_user.id}")
-            if response[0] or response[1]:
+            if response:
                 return True
             else:
                 return True

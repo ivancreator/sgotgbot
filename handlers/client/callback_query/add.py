@@ -2,7 +2,7 @@ from bot import dp
 from aiogram import types
 from aiogram.dispatcher.storage import FSMContext
 from filters import Main, IsOwner
-from functions.client import cidSelect, sidSelect, pidSelect, cnSelect, sftSelect, scidSelect, getloginState, schoolInfo
+from functions.client import cidSelect, getpasswordState, sidSelect, pidSelect, cnSelect, sftSelect, scidSelect, getloginState, schoolInfo
 from states import addAccount
 from utils.db import db
 from callbacks import cb_account
@@ -11,7 +11,7 @@ from netschoolapi import NetSchoolAPI
 
 from utils.db.data import Account
 
-@dp.callback_query_handler(Main(), cb_account.filter(action='login_select'), state='*')
+@dp.callback_query_handler(Main(), cb_account.filter(action='login'), state='*')
 async def select_login_handler(call: types.CallbackQuery, callback_data: dict, state=FSMContext):
     await call.answer()
     await getloginState(call.message, state)
@@ -66,6 +66,12 @@ async def select_cid_handler(call: types.CallbackQuery, callback_data: dict, sta
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='add', value=''), state=[addAccount.url, addAccount.wait_url, '*'])
 async def account_add(call: types.CallbackQuery, state=FSMContext):
+    register_account = await Account.get_registerAccount(call.from_user.id)
+    if register_account:
+        for account in register_account:
+            print(account)
+            if not account:
+                ...
     await call.answer()
     await addAccount.url.set()
     regions = await db.executeall("SELECT * FROM regions ORDER BY users_count DESC NULLS LAST LIMIT 3")
@@ -125,3 +131,37 @@ async def waitUrl(call: types.CallbackQuery, state: FSMContext):
         data["message"] = call.message
     await addAccount.wait_url.set()
     await call.message.edit_text("💬 Отправьте ссылку на свою систему Сетевой Город. Образование, скопировав её из адресной строки вашего браузера", reply_markup=markup)
+
+@dp.callback_query_handler(Main(), cb_account.filter(action='continue'), state=['*'])
+async def account_continueAdd(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
+    account = await Account.get_registerAccount(call.from_user.id)
+    ns = NetSchoolAPI(account['url'])
+    ns_sessions[account['id']] = ns
+    for key in account.items():
+        if not key[1]:
+            if key[0] == 'cid':
+                ns._login_data.update({'cid': key[0]})
+                await cidSelect(account['id'], call.message)
+            elif key[0] == 'sid':
+                ns._login_data.update({'sid': key[0]})
+                await sidSelect(call.message, account['id'])
+            elif key[0] == 'pid':
+                ns._login_data.update({'pid': key[0]})
+                await pidSelect(call.message, account['id'])
+            elif key[0] == 'cn':
+                ns._login_data.update({'cn': key[0]})
+                await cnSelect(call.message, account['id'])
+            elif key[0] == 'sft':
+                ns._login_data.update({'sft': key[0]})
+                await sftSelect(call.message, account['id'])
+            elif key[0] == 'scid':
+                ns._login_data.update({'scid': key[0]})
+                await scidSelect(call.message, account['id'])
+            elif key[0] == 'username':
+                ns._login_data.update({'username': key[0]})
+                await getloginState(call.message, state)
+            elif key[0] == 'password':
+                ns._login_data.update({'password': key[0]})
+                await getpasswordState(call.message, state)
+            else:
+                await nsSelect(call.message)

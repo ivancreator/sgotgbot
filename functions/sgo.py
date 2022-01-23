@@ -125,7 +125,7 @@ async def sendAnnouncement(chat_id: int, announcement):
     if attachments:
         markup = types.InlineKeyboardMarkup(row_width=1)
         for attachment in attachments:
-            markup.add(types.InlineKeyboardButton("📎 "+str(attachment['name']), callback_data=cb_account.new(action='getFile', value=attachment['id'])))
+            markup.add(types.InlineKeyboardButton("📎 "+str(attachment['name']), callback_data=cb_account.new(action='get_file', value=attachment['id'])))
         await bot.send_message(chat_id, message_text, entities=entity, reply_markup=markup)
     else:
         await bot.send_message(chat_id, message_text, entities=entity)
