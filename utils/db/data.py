@@ -25,20 +25,19 @@ class Update():
 class Account():
     async def add(telegram_id: int, url: str, get=['id'], **kwargs):
         kwargs.update({'telegram_id': telegram_id, 'url': url, 'status': 'register'})
-        query = await db.execute(sql.SQL("INSERT INTO accounts ({columns}) VALUES ({values}) ON CONFLICT DO NOTHING RETURNING ({returning})").format(
+        return await db.execute(sql.SQL("INSERT INTO accounts ({columns}) VALUES ({values}) ON CONFLICT DO NOTHING RETURNING ({returning})").format(
             columns=sql.SQL(', ').join(map(sql.Identifier, kwargs.keys())),
             values=sql.SQL(', ').join(sql.Placeholder() * len(kwargs)),
             returning=sql.SQL(', ').join(map(sql.Identifier, get))
             ), 
-        [kwargs.values()])
-        return query[0]
+        [*kwargs.values()])
 
     async def update(account_id: int, **kwargs):
-        return await db.execute(sql.SQL("UPDATE accounts SET ({columns}) = ({values}) WHERE id = %s".format(
+        return await db.execute(sql.SQL("UPDATE accounts SET ({columns}) = ({values}) WHERE id = %s").format(
             columns=sql.SQL(', ').join(map(sql.Identifier, kwargs.keys())),
             values=sql.SQL(', ').join(sql.Placeholder() * len(kwargs))
-        ),
-        [kwargs.values(), account_id]))
+            ), 
+        [*kwargs.values(), account_id])
 
     async def get_activeAccounts(telegram_id: int):
         return await db.executeall(sql.SQL("SELECT * FROM accounts WHERE telegram_id = %s AND status = 'active'"), [telegram_id])
