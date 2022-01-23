@@ -34,7 +34,6 @@ async def accountLogin(account_id, message=None):
     try:
         ns = ns_sessions[account_id]
         if not ns._login_data:
-            await ns.logout()
             del ns_sessions[account_id]
             raise errors.AuthError("Нет данных для входа")
     except (KeyError, errors.AuthError) as e:

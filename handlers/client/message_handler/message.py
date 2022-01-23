@@ -37,7 +37,12 @@ async def userConnect(message: types.Message, state: FSMContext):
         if response.status_code == 200:
             data = await state.get_data()
             bemessage = data["message"]
-            account_id = await Account.add(message.from_user.id, url)
+            accounts = await Account.get_registerAccount(message.from_user.id)
+            if accounts:
+                account = accounts
+            else:
+                account = await Account.add(message.from_user.id, url)
+            account_id = account['id']
             ns_sessions[account_id] = ns
             await addAccount.cid.set()
             await message.delete()
@@ -109,7 +114,8 @@ async def checkData(message: types.Message, msg: types.Message, state):
                 'status': 'active',
                 'nickname': nickname,
                 'school_name': school_name,
-                'display_name': default_display_name
+                'display_name': default_display_name,
+                'chat_id': message.chat.id
             }
             await Account.update(account_id, **data)
             await accountMenu(message, state)
