@@ -1,16 +1,15 @@
-from aiogram.types.callback_query import CallbackQuery
-from bot import dp, bot
+from bot import dp
 from aiogram import types
 from aiogram.dispatcher.storage import FSMContext
 from filters import Main, IsOwner
 from functions.client import cidSelect, sidSelect, pidSelect, cnSelect, sftSelect, scidSelect, getloginState, schoolInfo
 from states import addAccount
 from utils.db import db
-from aiogram.utils.callback_data import CallbackData
 from callbacks import cb_account
 from functions.sgo import ns_sessions
 from netschoolapi import NetSchoolAPI
-import httpx, typing
+
+from utils.db.data import Account
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='login_select'), state='*')
 async def select_login_handler(call: types.CallbackQuery, callback_data: dict, state=FSMContext):
@@ -19,50 +18,55 @@ async def select_login_handler(call: types.CallbackQuery, callback_data: dict, s
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='select_scid'), state=addAccount.scid)
 async def select_sft_handler(call: types.CallbackQuery, callback_data: dict, state=FSMContext):
-    async with state.proxy() as data:
-        data["scid"] = callback_data.get('value')
-    ns = ns_sessions[call.from_user.id]
     await call.answer()
-    await schoolInfo(call.message, state, ns._url, data['sft'], data['scid'], call.from_user.id)
+    account_id = await Account.get_registerAccount(call.from_user.id, 'id')
+    ns = ns_sessions[account_id]
+    ns._login_data['scid'] = callback_data.get('value')
+    await schoolInfo(call.message, account_id)
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='select_sft'), state=[addAccount.sft, '*'])
 async def select_sft_handler(call: types.CallbackQuery, callback_data: dict, state=FSMContext):
-    async with state.proxy() as data:
-        data["sft"] = callback_data.get('value')
+    account_id = await Account.get_registerAccount(call.from_user.id, 'id')
+    ns = ns_sessions[account_id]
+    ns._login_data['sft'] = callback_data.get('value')
     await call.answer()
-    await scidSelect(call.message, state, call.from_user.id)
+    await scidSelect(call.message, account_id)
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='select_cn'), state=addAccount.cn)
 async def select_cn_handler(call: types.CallbackQuery, callback_data: dict, state=FSMContext):
-    async with state.proxy() as data:
-        data["cn"] = callback_data.get('value')
+    account_id = await Account.get_registerAccount(call.from_user.id, 'id')
+    ns = ns_sessions[account_id]
+    ns._login_data['cn'] = callback_data.get('value')
     await call.answer()
-    await sftSelect(call.message, state, call.from_user.id)
+    await sftSelect(call.message, account_id)
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='select_pid'), state=addAccount.pid)
 async def select_pid_handler(call: types.CallbackQuery, callback_data: dict, state=FSMContext):
-    async with state.proxy() as data:
-        data["pid"] = callback_data.get('value')
+    account_id = await Account.get_registerAccount(call.from_user.id, 'id')
+    ns = ns_sessions[account_id]
+    ns._login_data['pid'] = callback_data.get('value')
     await call.answer()
-    await cnSelect(call.message, state, call.from_user.id)
+    await cnSelect(call.message, account_id)
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='select_sid'), state=addAccount.sid)
 async def select_sid_handler(call: types.CallbackQuery, callback_data: dict, state=FSMContext):
-    async with state.proxy() as data:
-        data["sid"] = callback_data.get('value')
+    account_id = await Account.get_registerAccount(call.from_user.id, 'id')
+    ns = ns_sessions[account_id]
+    ns._login_data['sid'] = callback_data.get('value')
     await call.answer()
-    await pidSelect(call.message, state, call.from_user.id)
+    await pidSelect(call.message, account_id)
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='select_cid'), state=addAccount.cid)
 async def select_cid_handler(call: types.CallbackQuery, callback_data: dict, state=FSMContext):
-    async with state.proxy() as data:
-        data["cid"] = callback_data.get('value')
+    account_id = await Account.get_registerAccount(call.from_user.id, 'id')
+    ns = ns_sessions[account_id]
+    ns._login_data['cid'] = callback_data.get('value')
     await call.answer()
-    await sidSelect(call.message, state, call.from_user.id)
+    await sidSelect(call.message, account_id)
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='add', value=''), state=[addAccount.url, addAccount.wait_url, '*'])
 async def account_add(call: types.CallbackQuery, state=FSMContext):
-    await bot.answer_callback_query(call.id)
+    await call.answer()
     await addAccount.url.set()
     regions = await db.executeall("SELECT * FROM regions ORDER BY users_count DESC NULLS LAST LIMIT 3")
     if regions:
@@ -74,11 +78,12 @@ async def account_add(call: types.CallbackQuery, state=FSMContext):
         await addAccount.wait_url.set()
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='region_select'), state=['*'])
-async def regionSelect(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
+async def regionSelect(call: types.CallbackQuery, callback_data: dict):
     region = await db.execute("SELECT url FROM regions WHERE id = %s", [callback_data['value']])
+    account_id = await Account.add(call.from_user.id, region[0])
     await addAccount.cid.set()
-    ns_sessions[call.from_user.id] = NetSchoolAPI(region[0])
-    await cidSelect(call.from_user.id, call.message, state)
+    ns_sessions[account_id] = NetSchoolAPI(region[0])
+    await cidSelect(account_id, call.message)
     
 
 async def nsSelect(message: types.Message):
@@ -98,7 +103,7 @@ async def nsSelect(message: types.Message):
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='geo', value=''), state=addAccount.url)
 async def requestGeo(call: types.CallbackQuery, state=FSMContext):
-    await bot.answer_callback_query(call.id)
+    await call.answer()
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(types.KeyboardButton(
         "📍 Оптравить местоположение", request_location=True))
@@ -112,7 +117,7 @@ async def requestGeo(call: types.CallbackQuery, state=FSMContext):
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='url', value=''), state=addAccount.url)
 async def waitUrl(call: types.CallbackQuery, state: FSMContext):
-    await bot.answer_callback_query(call.id)
+    await call.answer()
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton(
         "◀️ Вернуться к другим методам", callback_data=cb_account.new(action='add', value='')))

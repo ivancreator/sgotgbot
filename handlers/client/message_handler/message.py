@@ -1,10 +1,10 @@
 from aiogram import types
 from aiogram.types.message import ParseMode
 from bot import dp
+from functions.sgo import accountLogin
 from handlers.client.callback_query.add import nsSelect
 from utils.db import db, User, Account
-from filters import Main, IsLink, userAdd
-# from handlers.client.callback_query import add, schooltypeSelect
+from filters import Main, userAdd
 from aiogram.dispatcher.storage import FSMContext
 from states import addAccount, selectAccount
 from netschoolapi import NetSchoolAPI, errors
@@ -33,14 +33,15 @@ async def userConnect(message: types.Message, state: FSMContext):
     ns = NetSchoolAPI(str(message.text))
     url = ns._url
     try:
-        response = httpx.get(url, verify=False)
+        response = ns._client.get(url)
         if response.status_code == 200:
             data = await state.get_data()
             bemessage = data["message"]
             await message.delete()
-            ns_sessions[message.from_user.id] = ns
+            account_id = await Account.add(message.from_user.id, url)
+            ns_sessions[account_id] = ns
             await addAccount.cid.set()
-            await cidSelect(message.from_user.id, bemessage, state)
+            await cidSelect(account_id, bemessage)
         else:
             await message.reply("Ошибка обработки запроса ("+str(response.status_code)+")")
     except httpx.UnsupportedProtocol:
@@ -65,7 +66,9 @@ async def getLogin(message: types.Message, state: FSMContext):
     data = await state.get_data()
     msg = data["message"]
     await msg.edit_text("🔑 Введите пароль")
-    await state.update_data(login=str(message.text))
+    account_id = await Account.get_registerAccount(message.from_user.id, select='id')
+    ns = ns_sessions[account_id]
+    ns._login_data['username'] = message.text
     await message.delete()
     await addAccount.password.set()
 
@@ -85,29 +88,39 @@ async def add(message: types.Message, state: FSMContext, fail: str = None):
         data["message"] = message
     await addAccount.login.set()
 
-async def checkData(message: types.Message, msg, state):
-    data = await state.get_data()
-    ns = ns_sessions[message.from_user.id]
+async def checkData(message: types.Message, msg: types.Message, state):
+    account_id = await Account.get_registerAccount(message.from_user.id, select='id')
+    ns = ns_sessions[account_id]
+    data = ns._login_data
     response = await ns._client.get("schools/" +
                          str(data['scid'])+"/card")
     if response.status_code == 200:
         await msg.edit_text("🕐 Проверка данных")
         school_name = str(response.json()["commonInfo"]["schoolName"])
         try:
-            await ns.login(data['login'], data['password'], data['cid'], data['sid'], data['pid'], data['cn'], data['sft'], data['scid'])
+            await accountLogin(account_id)
             init = await ns._request_with_optional_relogin('student/diary/init')
             nickname = str(init.json()['students'][0]['nickName'])
-            display_name = nickname + " ("+ school_name +")"
-            account = await Account.add(message.from_user.id, data['cid'], data['sid'], data['pid'], data['cn'], data['sft'], data['scid'], data['login'], data['password'], ns._url, display_name)
-            await db.execute("UPDATE accounts SET status = 'active' WHERE id = %s", [account[0]])
-            await state.reset_state(with_data=True)
-            account = await db.execute(f"SELECT * FROM accounts WHERE telegram_id = {message.from_user.id}")
-            await selectAccount.menu.set()
-            await accountMenu(message, state, account[0])
+            default_display_name = nickname + " ("+ school_name +")"
+            data = {
+                **ns._login_data,
+                'nickname': nickname,
+                'school_name': school_name,
+                'display_name': default_display_name
+            }
+            ns._login_data = {}
+            await Account.update(account_id, **data)
+            await accountMenu(message, state)
             await msg.delete()
         except errors.AuthError as e:
-            await msg.edit_text("⚠ "+str(e))
+            await addAccount.scid.set()
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("🔏 Изменить данные", callback_data=cb_account.new(action='select_scid', value=data['scid'])))
+            await msg.edit_text("⚠ "+str(e), reply_markup=markup)
         except Exception as e:
+            await state.reset_state(with_data=True)
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("🏠 Вернуться в начало", callback_data=cb_account.new(action='accounts_list', value='')))
             print("Ошибка при входе в СГО: " + str(e))
             await msg.edit_text("❗️ Возникла неожиданная ошибка, попробуйте ещё раз")
 
@@ -115,5 +128,8 @@ async def checkData(message: types.Message, msg, state):
 async def getPassword(message: types.Message, state: FSMContext):
     await state.update_data(password=message.text)
     data = await state.get_data()
+    account_id = await Account.get_registerAccount(message.from_user.id, select='id')
+    ns = ns_sessions[account_id]
+    ns._login_data['username'] = message.text
     await message.delete()
     await checkData(message, data["message"], state)

@@ -21,12 +21,34 @@ class Update():
         await db.executemany(
             'INSERT INTO regions (display_name, site) VALUES (%s, %s) ON CONFLICT DO NOTHING', regions)
 
+async def unpack_data(**kwargs):
+    keys, values = []
+    for key, value in kwargs:
+        keys.append(key)
+        values.append(value)
+    return (*keys, *values)
 
 class Account():
-    async def add(telegram_id: int, cid: int, sid: int, pid: int, cn: int, sft: int, scid: int, login: str, password: str, url: str, nickname: str):
-        return await db.execute("INSERT INTO accounts (telegram_id, cid, sid, pid, cn, sft, scid, login, password, url, display_name) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING RETURNING id", 
-        (telegram_id, cid, sid, pid, cn, sft, scid, login, password, url, nickname))
+    async def add(telegram_id: int, url: str, get='id', **kwargs):
+        kwargs = await unpack_data(**kwargs)
+        keys, values = kwargs[0], kwargs[1]
+        return await db.execute(f"INSERT INTO accounts ({keys}) VALUES (%s) ON CONFLICT DO NOTHING RETURNING {get}", 
+        (values))
 
+    async def update(account_id: int, **kwargs):
+        kwargs = await unpack_data(**kwargs)
+        keys, values = kwargs[0], kwargs[1]
+        return await db.execute(f"UPDATE accounts SET ({keys}) VALUES (%s) WHERE id = %s",
+        (values, account_id))
+
+    async def get_activeAccounts(telegram_id: int, select='*'):
+        return await db.executeall(f"SELECT {select} FROM accounts WHERE telegram_id = %s AND status = 'active'", (select, telegram_id))
+
+    async def get_registerAccount(telegram_id: int, select='*'):
+        return await db.execute(f"SELECT {select} FROM accounts WHERE telegram_id = %s AND status = 'register'", (select, telegram_id))
+
+    async def logout(account_id: int):
+        return await db.execute("UPDATE accounts SET status = 'inactive', alert = False WHERE id = %s", (account_id))
 
 class User():
     async def add(telegram_id, username, first_name, last_name, isOwner = False, BetaAccess = False, StartStatus = False):

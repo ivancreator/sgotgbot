@@ -1,3 +1,4 @@
+from typing import final
 from bot import dp, bot
 from aiogram import types
 from filters import Main
@@ -7,42 +8,54 @@ from states import selectAccount
 from functions.client import sendAnnouncements, accountsList
 from functions.sgo import add_checkThread, checkNew, ns_sessions
 from netschoolapi import NetSchoolAPI
-from utils.db.data import db
+from utils.db.data import Account, db
 
 @dp.message_handler(Main(), text="📋 Просмотр объявлений", state=selectAccount.menu)
 @dp.throttled(anti_flood, rate=3)
 async def announcements(message: types.Message, state: FSMContext):
     wait_message = await message.answer("🕐 Немного подождите")
     await message.delete()
-    ns = ns_sessions[message.from_user.id]
+    accounts = await Account.get_activeAccounts(message.from_user.id, 'id, alert')
+    account = accounts[0]
+    account_id = account[0]
+    ns = ns_sessions[account_id]
     await sendAnnouncements(message, ns, state)
     await wait_message.delete()
 
 @dp.message_handler(Main(), text="⚙️ Настройки", state=selectAccount.menu)
 @dp.throttled(anti_flood, rate=3)
 async def setting(message: types.Message, state: FSMContext):
-    account = await db.execute("SELECT * FROM accounts WHERE telegram_id = %s AND status = 'active'", [message.from_user.id])
-    if account[16]:
-        await db.execute("UPDATE accounts SET alert = False WHERE telegram_id = %s AND status = 'active'", [message.from_user.id])
+    accounts = await Account.get_activeAccounts(message.from_user.id, 'id, alert')
+    account = accounts[0]
+    account_id = account[0]
+    if account[1]:
+        await db.execute("UPDATE accounts SET alert = False WHERE id = %s", [account_id])
         await message.answer("🔕 Уведомления отключены")
     else:
-        ns = ns_sessions[message.from_user.id]
-        await db.execute("UPDATE accounts SET alert = True, chat_id = %s WHERE telegram_id = %s AND status = 'active'", [message.chat.id, message.from_user.id])
+        ns = ns_sessions[account_id]
+        await db.execute("UPDATE accounts SET alert = True WHERE id = %s ", [account_id])
         await message.answer("🔔 Уведомления включены")
-        await add_checkThread(message.from_user.id, message.chat.id, ns)
+        await add_checkThread(account_id, ns)
     await message.delete()
 
 @dp.message_handler(Main(), text="🚪 Выход", state=selectAccount.menu)
 async def exit(message: types.Message, state: FSMContext):
     exit_msg = await message.answer("🚪 Выполняется выход из учётной записи")
     await message.delete()
-    account_id = await db.execute("SELECT id FROM accounts WHERE telegram_id = %s AND status = 'active'", [message.from_user.id])
-    await db.execute("UPDATE accounts SET status = 'inactive', alert = False WHERE id = %s", [account_id])
+    accounts = await Account.get_activeAccounts(message.from_user.id)
+    account = accounts[0]
+    account_id = account[0]
+    await Account.logout(account_id)
     data = await state.get_data()
-    ns = ns_sessions[message.from_user.id]
-    await exit_msg.edit_text("🕐 Отправлен запрос на выход")
-    await accountsList(message, state)
-    await ns.logout()
-    del ns_sessions[message.from_user.id]
     await data['message'].delete()
-    await exit_msg.delete()
+    await accountsList(message, state)
+    try:
+        await exit_msg.edit_text("🕐 Отправляется запрос на выход")
+        ns = ns_sessions[account_id]
+        await ns.logout()
+        del ns_sessions[account_id]
+    except Exception as e:
+        print("Ошибка при выходе из учётной записи: %s" % e)
+        await exit_msg.edit_text("❗ Возникла неожиданная ошибка при выходе из учётной записи")
+    else:
+        await exit_msg.delete()
