@@ -209,4 +209,4 @@ async def checkNew(account_id, ns: NetSchoolAPI):
     except Exception as e:
         await log.write(str(account['id']), "НЕОЖИДАННОЕ ИСКЛЮЧЕНИЕ: "+str(e))
         await bot.send_message(account['chat_id'], "❗️ Неожиданная ошибка при получении объявлений")
-        raise Exception("Unknown exception") from e
+        raise e

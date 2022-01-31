@@ -105,12 +105,12 @@ async def checkData(message: types.Message, msg: types.Message, state):
         await msg.edit_text("🕐 Проверка данных")
         school_name = str(response.json()["commonInfo"]["schoolName"])
         try:
-            await accountLogin(account_id)
-            init = await ns._request_with_optional_relogin('student/diary/init')
-            nickname = str(init.json()['students'][0]['nickName'])
+            ns = await accountLogin(account_id)
+            student = ns._student
+            nickname = str(student['nickName'])
             default_display_name = nickname + " ("+ school_name +")"
             data = {
-                **ns._prelogin_data,
+                **data,
                 'status': 'active',
                 'nickname': nickname,
                 'school_name': school_name,
@@ -130,7 +130,7 @@ async def checkData(message: types.Message, msg: types.Message, state):
             markup = types.InlineKeyboardMarkup()
             markup.add(types.InlineKeyboardButton("🏠 Вернуться в начало", callback_data=cb_account.new(action='list', value='')))
             print("Ошибка при входе в СГО: " + str(e))
-            await msg.edit_text("❗️ Возникла неожиданная ошибка, попробуйте ещё раз")
+            await msg.edit_text("❗️ Возникла неожиданная ошибка, попробуйте ещё раз", reply_markup=markup)
 
 @dp.message_handler(state=addAccount.password)
 async def getPassword(message: types.Message, state: FSMContext):

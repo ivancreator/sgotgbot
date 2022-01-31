@@ -58,7 +58,8 @@ async def getAttachments(call: types.CallbackQuery, callback_data: dict, state: 
         await call.answer()
         file_msg = await call.message.answer("🕐 Немного подождите")
         active_accounts = await Account.get_activeAccounts(call.from_user.id)
-        for account_id in active_accounts:
+        for account in active_accounts:
+            account_id = account['id']
             ns = ns_sessions[account_id]
             await file_msg.edit_text("🔍 Поиск документа")
             attachments = [announcement async for announcement in getAnnouncements(ns) for attachment in announcement['attachments'] if attachment['id'] == int(callback_data['value'])][0]['attachments']
