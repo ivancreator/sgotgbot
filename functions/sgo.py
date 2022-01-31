@@ -167,6 +167,7 @@ async def closeAll():
     #     del alert_threads[account_id]
     for account_id, ns in tuple(ns_sessions.items()):
         await ns.logout()
+        await ns._client.aclose()
         print(str("Account ID: ")+str(account_id))
         print("Class object: "+str(ns))
         del ns_sessions[account_id]

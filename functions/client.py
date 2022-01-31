@@ -53,10 +53,10 @@ async def accountsList(message: types.Message, state: FSMContext):
                     display_name += " ({})".format(account['class_name'])
             markup.add(types.InlineKeyboardButton(display_name, callback_data=cb_account.new(action='select', value=str(account['id']))))
     if register_account:
-        text = "➕Нажмите на соответствующую кнопку чтобы добавить данные для входа в учётную запись Сетевого Города"
+        text = "▶️ Нажмите на соответствующую кнопку чтобы продолжить добавление учётной записи Сетевого Города"
         markup.row(types.InlineKeyboardButton(
-            '➕ Добавить учётную запись', callback_data=cb_account.new(action='continue', value=account['id'])))
-            # '▶️ Продолжить добавление', callback_data=cb_account.new(action='continue', value=account['id'])))
+            # '➕ Добавить учётную запись', callback_data=cb_account.new(action='continue', value=account['id'])))
+            '▶️ Продолжить добавление', callback_data=cb_account.new(action='continue', value=account['id'])))
     else:
         text = "📃 Выберите учётную запись"
         markup.row(types.InlineKeyboardButton(
