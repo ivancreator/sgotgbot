@@ -53,6 +53,7 @@ async def exit(message: types.Message, state: FSMContext):
         await exit_msg.edit_text("🕐 Отправляется запрос на выход")
         ns = ns_sessions[account_id]
         await ns.logout()
+        await ns._client.aclose()
         del ns_sessions[account_id]
     except Exception as e:
         print("Ошибка при выходе из учётной записи: %s" % e)
