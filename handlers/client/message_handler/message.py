@@ -123,6 +123,8 @@ async def checkData(message: types.Message, msg: types.Message, state):
         except errors.AuthError as e:
             await addAccount.scid.set()
             markup = types.InlineKeyboardMarkup()
+            del ns._prelogin_data['password']
+            await Account.update(account_id, **ns._prelogin_data)
             markup.add(types.InlineKeyboardButton("🔏 Изменить данные", callback_data=cb_account.new(action='select_scid', value=data['scid'])))
             await msg.edit_text("⚠ "+str(e), reply_markup=markup)
         except Exception as e:

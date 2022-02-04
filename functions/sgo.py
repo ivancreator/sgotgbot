@@ -34,7 +34,7 @@ async def accountLogin(account_id, message=None):
     try:
         ns = ns_sessions[account_id]
         if not ns._login_data:
-            del ns_sessions[account_id]
+            # del ns_sessions[account_id]
             raise errors.AuthError("Нет данных для входа")
     except (KeyError, errors.AuthError) as e:
         try:
@@ -57,11 +57,13 @@ async def accountLogin(account_id, message=None):
             await log.write(str(account_id), "Долгое ожидание во время запроса: TimeoutException ("+str(e)+")")
             raise e
         except errors.AuthError as e:
+            await log.write(str(account_id), "Обработанная ошибка входа во время запроса: "+str(e))
             if message:
                 await message.edit_text("⚠️ "+str(e))
-            await log.write(str(account_id), "Обработанная ошибка входа во время запроса: "+str(e))
-            await db.execute("UPDATE accounts SET alert = False, status = 'inactive' WHERE id = %s", [account_id])
-            await bot.send_message(account['chat_id'], "⚠️ Ошибка входа в учётную запись %s, функция уведомлений отключена.\nПодробности: %s" % [str(account['display_name']), str(e)])
+            else:
+                if account['display_name']:
+                    await bot.send_message(account['chat_id'], "⚠️ Ошибка входа в учётную запись %s, функция уведомлений отключена.\nПодробности: %s" % [str(account['display_name']), str(e)])
+            # await db.execute("UPDATE accounts SET alert = False, status = 'inactive' WHERE id = %s", [account_id])
             raise e
         except Exception as e:
             if message:
@@ -176,7 +178,7 @@ async def checkNew(account_id, ns: NetSchoolAPI):
     try:
         account = await db.execute("SELECT id, alert, chat_id, display_name FROM accounts WHERE id = %s", [account_id])
         old_data = [announcemet async for announcemet in getAnnouncements(ns, take=-1)]
-        while account['id']:
+        while account['alert']:
             account = await db.execute("SELECT id, alert, chat_id, display_name FROM accounts WHERE id = %s", [account_id])
             if account:
                 try:
