@@ -37,9 +37,9 @@ async def userConnect(message: types.Message, state: FSMContext):
         if response.status_code == 200:
             data = await state.get_data()
             bemessage = data["message"]
-            accounts = await Account.get_registerAccount(message.from_user.id)
-            if accounts:
-                account = accounts
+            account = await Account.get_registerAccount(message.from_user.id)
+            if account:
+                await Account.update(account['id'], **{'url': url})
             else:
                 account = await Account.add(message.from_user.id, url)
             account_id = account['id']
@@ -56,6 +56,7 @@ async def userConnect(message: types.Message, state: FSMContext):
     except Exception as e:
         await message.reply("Неожиданная ошибка при выполнении запроса")
         print(f"Неожиданная ошибка при подключении {url}")
+        raise e
 
 @dp.message_handler(Main(), text='❌ Отмена', state=addAccount.wait_geo)
 async def cancelGeo(message: types.Message, state: FSMContext):
@@ -77,22 +78,6 @@ async def getLogin(message: types.Message, state: FSMContext):
     await Account.update(account['id'], **ns._prelogin_data)
     await message.delete()
     await addAccount.password.set()
-
-# async def add(message: types.Message, state: FSMContext, fail: str = None):
-#     data = await state.get_data()
-#     markup = types.InlineKeyboardMarkup()
-#     # markup.add(types.InlineKeyboardButton("◀️ Вернуться",
-#     #            callback_data=cb_account.new(action='select_sft', value=data['sft'])))
-#     if fail == "AuthError":
-#         await message.edit_text("❗️ Не верные данные, повторите попытку.\n👤 Введите имя пользователя", reply_markup=markup)
-#     elif fail == "UnknownError":
-#         await message.edit_text("❗️ Возникла неожиданная ошибка, попробуйте позже", reply_markup=markup)
-#         await state.reset_state(with_data=True)
-#     else:
-#         await message.edit_text("👤 Введите имя пользователя", reply_markup=markup)
-#     async with state.proxy() as data:
-#         data["message"] = message
-#     await addAccount.login.set()
 
 async def checkData(message: types.Message, msg: types.Message, state):
     account = await Account.get_registerAccount(message.from_user.id)
@@ -123,7 +108,7 @@ async def checkData(message: types.Message, msg: types.Message, state):
         except errors.AuthError as e:
             await addAccount.scid.set()
             markup = types.InlineKeyboardMarkup()
-            del ns._prelogin_data['password']
+            ns._prelogin_data['password'] = None
             await Account.update(account_id, **ns._prelogin_data)
             markup.add(types.InlineKeyboardButton("🔏 Изменить данные", callback_data=cb_account.new(action='select_scid', value=data['scid'])))
             await msg.edit_text("⚠ "+str(e), reply_markup=markup)
@@ -133,6 +118,7 @@ async def checkData(message: types.Message, msg: types.Message, state):
             markup.add(types.InlineKeyboardButton("🏠 Вернуться в начало", callback_data=cb_account.new(action='list', value='')))
             print("Ошибка при входе в СГО: " + str(e))
             await msg.edit_text("❗️ Возникла неожиданная ошибка, попробуйте ещё раз", reply_markup=markup)
+            raise e
 
 @dp.message_handler(state=addAccount.password)
 async def getPassword(message: types.Message, state: FSMContext):

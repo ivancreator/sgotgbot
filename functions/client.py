@@ -157,7 +157,7 @@ async def scidSelect(message: types.Message, account_id: int):
             markup.add(types.InlineKeyboardButton(x['name'][:38], callback_data=cb_account.new(action='select_scid', value=x['id'])))
         await message.edit_text("🏫 Выберите образовательную огранизацию", reply_markup=markup)
     else:
-        ns._prelogin_data['cn'] = schools[0]['id']
+        ns._prelogin_data['scid'] = schools[0]['id']
         await Account.update(account_id, **ns._prelogin_data)
         await schoolInfo(message, account_id)
 

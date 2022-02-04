@@ -3,6 +3,7 @@ from bot import dp, bot
 from aiogram import types
 from aiogram.dispatcher.storage import FSMContext
 from filters import Main, IsOwner
+from handlers.client.callback_query.add import account_add
 from states import addAccount, selectAccount
 from utils.db import db
 from callbacks import cb_account
@@ -21,11 +22,18 @@ async def accountSelect(call: types.CallbackQuery, callback_data: dict):
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='remove'), state=[selectAccount.select, selectAccount.menu])
 async def accountRemove(call: types.CallbackQuery(), callback_data: dict, state: FSMContext):
+    account_id = int(callback_data['value'])
     data = await state.get_data()
-    await db.execute(f"DELETE FROM accounts WHERE id = {callback_data['value']}")
-    await call.answer("🗑 Учётная запись успешно удалена")
-    await accountsCheck(data['usermsg'], state)
-    await call.message.delete()
+    try:
+        ns = ns_sessions[account_id]
+        await ns.logout()
+        await ns._client.aclose()
+        del ns_sessions[account_id]
+    finally:
+        await db.execute(f"DELETE FROM accounts WHERE id = %s", ())
+        await call.answer("🗑 Учётная запись успешно удалена")
+        await accountsCheck(data['usermsg'], state)
+        await call.message.delete()
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='list'), state=['*', selectAccount.select])
 async def accountsList(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
