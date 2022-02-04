@@ -1,7 +1,9 @@
 import asyncio
+import sys
 from functions.sgo import reStore, closeAll
 async def on_startup(x):
-    asyncio.create_task(reStore())
+    await reStore()
 
 async def on_shutdown(x):
-    asyncio.create_task(closeAll())
+    await closeAll()
+    sys.exit(0)

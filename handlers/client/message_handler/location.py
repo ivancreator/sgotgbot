@@ -2,11 +2,13 @@ from aiogram import types
 from aiogram.dispatcher.storage import FSMContext
 from bot import dp, bot
 from utils.db import db, User
-from filters import IsOwner, Main, IsLink, userAdd
+from filters import IsOwner, Main, userAdd
 from states import addAccount
 from functions import cidSelect, ns_sessions
 from netschoolapi import NetSchoolAPI
 import httpx
+
+from utils.db.data import Account
 
 @dp.message_handler(Main(), content_types=["location"], state=addAccount.wait_geo)
 async def test(message: types.Message, state: FSMContext):
@@ -22,18 +24,20 @@ async def test(message: types.Message, state: FSMContext):
         try:
             city = result["address"]["city"]
         except KeyError as e:
-            await nmessage.edit_text("⚠ Не удалось определить регион")
+            await nmessage.edit_text("❗️ Не удалось определить регион")
+        except Exception as e:
+            print("Неожиданная ошибка при определении региона пользователя")
             raise e
-        bemessage = await nmessage.edit_text("🕐 Загрузка данных ("+city+")")
+        await nmessage.edit_text("🕐 Загрузка данных ("+city+")")
         region = await db.execute("SELECT * FROM regions WHERE display_name = %s", [city])
         if region:
+            account_id = await Account.add(message.from_user.id, region[0])
             await addAccount.cid.set()
-            ns = NetSchoolAPI(region[2])
-            ns_sessions[message.from_user.id] = ns
-            await cidSelect(message.from_user.id, bemessage, state)
+            ns_sessions[account_id] = NetSchoolAPI(region[0])
+            await cidSelect(account_id, nmessage)
         else:
-            await nmessage.edit_text("❗️ Ваш регион не поддерживается")
-            await state.finish()
+            await nmessage.edit_text("⚠ Вашего региона нет в базе данных\n📎 Введите ссылку на СГО")
+            await addAccount.wait_url.set()
     else:
-        await old_message.edit_text("❌ Прозошла ошибка при нахождении вашего метстоположения, попробуйте позже")
+        await nmessage.edit_text("❌ Прозошла ошибка при нахождении вашего метстоположения, попробуйте позже")
         await state.finish()

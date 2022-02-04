@@ -1,4 +1,5 @@
 from .database import InitDb
+from psycopg2 import sql
 import json
 
 db = InitDb()
@@ -21,12 +22,32 @@ class Update():
         await db.executemany(
             'INSERT INTO regions (display_name, site) VALUES (%s, %s) ON CONFLICT DO NOTHING', regions)
 
-
 class Account():
-    async def add(telegram_id: int, cid: int, sid: int, pid: int, cn: int, sft: int, scid: int, login: str, password: str, url: str, nickname: str):
-        return await db.execute("INSERT INTO accounts (telegram_id, cid, sid, pid, cn, sft, scid, login, password, url, display_name) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING RETURNING id", 
-        (telegram_id, cid, sid, pid, cn, sft, scid, login, password, url, nickname))
+    async def add(telegram_id: int, url: str, get=['id'], **kwargs):
+        kwargs.update({'telegram_id': telegram_id, 'url': url, 'status': 'register'})
+        return await db.execute(sql.SQL("INSERT INTO accounts ({columns}) VALUES ({values}) ON CONFLICT DO NOTHING RETURNING ({returning})").format(
+            columns=sql.SQL(', ').join(map(sql.Identifier, kwargs.keys())),
+            values=sql.SQL(', ').join(sql.Placeholder() * len(kwargs)),
+            returning=sql.SQL(', ').join(map(sql.Identifier, get))
+            ), 
+        [*kwargs.values()])
 
+    async def update(account_id: int, **kwargs):
+        kwargs.update({'id': account_id})
+        return await db.execute(sql.SQL("UPDATE accounts SET ({columns}) = ({values}) WHERE id = %s").format(
+            columns=sql.SQL(', ').join(map(sql.Identifier, kwargs.keys())),
+            values=sql.SQL(', ').join(sql.Placeholder() * len(kwargs))
+            ), 
+        [*kwargs.values(), account_id])
+
+    async def get_activeAccounts(telegram_id: int):
+        return await db.executeall(sql.SQL("SELECT * FROM accounts WHERE telegram_id = %s AND status = 'active'"), [telegram_id])
+
+    async def get_registerAccount(telegram_id: int):
+        return await db.execute(sql.SQL("SELECT * FROM accounts WHERE telegram_id = %s AND status = 'register'"), [telegram_id])
+
+    async def logout(account_id: int):
+        return await db.execute("UPDATE accounts SET status = 'inactive', alert = False WHERE id = %s", [account_id])
 
 class User():
     async def add(telegram_id, username, first_name, last_name, isOwner = False, BetaAccess = False, StartStatus = False):
