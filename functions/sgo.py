@@ -188,7 +188,7 @@ async def checkNew(account_id, ns: NetSchoolAPI):
                                 await sendAnnouncement(account['chat_id'], new)
                         old_data = new_data
                 except httpx.HTTPError as e:
-                    await bot.send_message(account[2], "⚠ Ошибка подключения при получении объявлений")
+                    # await bot.send_message(account['chat_id'], "⚠ Ошибка подключения при получении объявлений")
                     await log.write(str(account['id']), "Ошибка подключения: " + str(e))
                     await log.write(str(account['id']), "Аргументы: " + str(e.args))
                     if hasattr(e, 'request'):

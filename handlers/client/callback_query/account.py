@@ -30,7 +30,7 @@ async def accountRemove(call: types.CallbackQuery(), callback_data: dict, state:
         await ns._client.aclose()
         del ns_sessions[account_id]
     finally:
-        await db.execute(f"DELETE FROM accounts WHERE id = %s", ())
+        await db.execute("DELETE FROM accounts WHERE id = %s", [account_id])
         await call.answer("🗑 Учётная запись успешно удалена")
         await accountsCheck(data['usermsg'], state)
         await call.message.delete()
