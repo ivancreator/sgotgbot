@@ -1,3 +1,4 @@
+from multiprocessing.connection import wait
 from bot import dp
 from aiogram import types
 from aiogram.dispatcher.storage import FSMContext
@@ -72,12 +73,12 @@ async def select_cid_handler(call: types.CallbackQuery, callback_data: dict, sta
 
 @dp.callback_query_handler(Main(), cb_account.filter(action='add', value=''), state=[addAccount.url, addAccount.wait_url, '*'])
 async def account_add(call: types.CallbackQuery, state=FSMContext):
-    register_account = await Account.get_registerAccount(call.from_user.id)
-    if register_account:
-        for account in register_account:
-            print(account)
-            if not account:
-                ...
+    # register_account = await Account.get_registerAccount(call.from_user.id)
+    # if register_account:
+    #     for account in register_account:
+    #         print(account)
+    #         if not account:
+    #             ...
     await call.answer()
     await addAccount.url.set()
     regions = await db.executeall("SELECT * FROM regions ORDER BY users_count DESC NULLS LAST LIMIT 3")
@@ -141,37 +142,40 @@ async def waitUrl(call: types.CallbackQuery, state: FSMContext):
 @dp.callback_query_handler(Main(), cb_account.filter(action='continue'), state=['*'])
 async def account_continueAdd(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
     account = await Account.get_registerAccount(call.from_user.id)
-    ns = NetSchoolAPI(account['url'])
-    ns_sessions[account['id']] = ns
-    regions = await db.execute("SELECT * FROM regions")
-    for key in account.items():
-        if key[1]:
-            ns._prelogin_data.update({key[0]: key[1]})
-        else:
-            if key[0] == 'cid':
-                await cidSelect(account['id'], call.message)
-                break
-            elif key[0] == 'sid':
-                await sidSelect(call.message, account['id'])
-                break
-            elif key[0] == 'pid':
-                await pidSelect(call.message, account['id'])
-                break
-            elif key[0] == 'cn':
-                await cnSelect(call.message, account['id'])
-                break
-            elif key[0] == 'sft':
-                await sftSelect(call.message, account['id'])
-                break
-            elif key[0] == 'scid':
-                await scidSelect(call.message, account['id'])
-                break
-            elif key[0] == 'username':
-                await schoolInfo(call.message, account['id'])
-                break
-            elif key[0] == 'password':
-                await schoolInfo(call.message, account['id'])
-                break
+    if not account['url']:
+        await account_add(call, state)
+    else:
+        ns = NetSchoolAPI(account['url'])
+        ns_sessions[account['id']] = ns
+        regions = await db.execute("SELECT * FROM regions")
+        for key in account.items():
+            if key[1]:
+                ns._prelogin_data.update({key[0]: key[1]})
             else:
-                await account_add(call, state)
-                break
+                if key[0] == 'cid':
+                    await cidSelect(account['id'], call.message)
+                    break
+                elif key[0] == 'sid':
+                    await sidSelect(call.message, account['id'])
+                    break
+                elif key[0] == 'pid':
+                    await pidSelect(call.message, account['id'])
+                    break
+                elif key[0] == 'cn':
+                    await cnSelect(call.message, account['id'])
+                    break
+                elif key[0] == 'sft':
+                    await sftSelect(call.message, account['id'])
+                    break
+                elif key[0] == 'scid':
+                    await scidSelect(call.message, account['id'])
+                    break
+                elif key[0] == 'username':
+                    await schoolInfo(call.message, account['id'])
+                    break
+                elif key[0] == 'password':
+                    await schoolInfo(call.message, account['id'])
+                    break
+                else:
+                    await account_add(call, state)
+                    break

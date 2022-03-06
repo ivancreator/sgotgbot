@@ -34,7 +34,7 @@ async def accountLogin(account_id, message=None):
     try:
         ns = ns_sessions[account_id]
         if not ns._login_data:
-            del ns_sessions[account_id]
+            # del ns_sessions[account_id]
             raise errors.AuthError("Нет данных для входа")
     except (KeyError, errors.AuthError) as e:
         try:
@@ -57,11 +57,13 @@ async def accountLogin(account_id, message=None):
             await log.write(str(account_id), "Долгое ожидание во время запроса: TimeoutException ("+str(e)+")")
             raise e
         except errors.AuthError as e:
+            await log.write(str(account_id), "Обработанная ошибка входа во время запроса: "+str(e))
             if message:
                 await message.edit_text("⚠️ "+str(e))
-            await log.write(str(account_id), "Обработанная ошибка входа во время запроса: "+str(e))
-            await db.execute("UPDATE accounts SET alert = False, status = 'inactive' WHERE id = %s", [account_id])
-            await bot.send_message(account['chat_id'], "⚠️ Ошибка входа в учётную запись %s, функция уведомлений отключена.\nПодробности: %s" % [str(account['display_name']), str(e)])
+            else:
+                if account['display_name']:
+                    await bot.send_message(account['chat_id'], "⚠️ Ошибка входа в учётную запись %s, функция уведомлений отключена.\nПодробности: %s" % [str(account['display_name']), str(e)])
+            # await db.execute("UPDATE accounts SET alert = False, status = 'inactive' WHERE id = %s", [account_id])
             raise e
         except Exception as e:
             if message:
@@ -159,17 +161,13 @@ async def reStore():
         except Exception as e:
             await log.write("ОШИБКА", "Неожиданная ошибка при восстановлении сессии в СГО ("+str(e)+")")
             await bot.send_message(account['chat_id'], "❗️ Неожиданная ошибка при восстановлении сессии")
+            raise e
 
 async def closeAll():
     await log.close()
-    print("Logout all sessions\n"+str(ns_sessions))
-    # for account_id, thread in alert_threads:
-    #     del alert_threads[account_id]
     for account_id, ns in tuple(ns_sessions.items()):
         await ns.logout()
         await ns._client.aclose()
-        print(str("Account ID: ")+str(account_id))
-        print("Class object: "+str(ns))
         del ns_sessions[account_id]
 
 async def checkNew(account_id, ns: NetSchoolAPI):
@@ -178,7 +176,7 @@ async def checkNew(account_id, ns: NetSchoolAPI):
         old_data = [announcemet async for announcemet in getAnnouncements(ns, take=-1)]
         while account['alert']:
             account = await db.execute("SELECT id, alert, chat_id, display_name FROM accounts WHERE id = %s", [account_id])
-            if account:
+            if account['alert']:
                 try:
                     await log.write(account['id'], "Check announcement updates")
                     new_data = [announcemet async for announcemet in getAnnouncements(ns, take=-1)]
@@ -191,7 +189,7 @@ async def checkNew(account_id, ns: NetSchoolAPI):
                                 await sendAnnouncement(account['chat_id'], new)
                         old_data = new_data
                 except httpx.HTTPError as e:
-                    await bot.send_message(account[2], "⚠ Ошибка подключения при получении объявлений")
+                    # await bot.send_message(account['chat_id'], "⚠ Ошибка подключения при получении объявлений")
                     await log.write(str(account['id']), "Ошибка подключения: " + str(e))
                     await log.write(str(account['id']), "Аргументы: " + str(e.args))
                     if hasattr(e, 'request'):
@@ -207,6 +205,12 @@ async def checkNew(account_id, ns: NetSchoolAPI):
         await bot.send_message(account['chat_id'], "⚠️ Ошибка входа в учётную запись "+str(account['display_name'])+", функция уведомлений отключена.")
         await log.write(str(account['id']), "Обработанная ошибка входа во время запроса: "+str(e))
         await db.execute("UPDATE accounts SET alert = False WHERE id = %s", [account['id']])
+    except KeyError as e:
+        await log.write(str(account['id']), "Ошибка ключа: "+str(e))
+        await bot.send_message(account['chat_id'], "⚠️ Похоже, что какие-то данные учётной записи пропали")
+    except TypeError as e:
+        await log.write(str(account['id']), "Ошибка ключа: "+str(e))
+        await bot.send_message(account['chat_id'], "⚠️ Кажется, что учётная запись исчезла")
     except Exception as e:
         await log.write(str(account['id']), "НЕОЖИДАННОЕ ИСКЛЮЧЕНИЕ: "+str(e))
         await bot.send_message(account['chat_id'], "❗️ Неожиданная ошибка при получении объявлений")
