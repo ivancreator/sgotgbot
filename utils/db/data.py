@@ -40,6 +40,10 @@ class Account():
             ), 
         [*kwargs.values(), account_id])
 
+    async def get(account_id: int):
+        response = await db.executeall(sql.SQL("SELECT * FROM accounts WHERE id = %s"), [account_id])
+        return response[0]
+
     async def get_activeAccounts(telegram_id: int):
         return await db.executeall(sql.SQL("SELECT * FROM accounts WHERE telegram_id = %s AND status = 'active'"), [telegram_id])
 

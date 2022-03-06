@@ -1,4 +1,3 @@
-from multiprocessing.connection import wait
 from bot import dp
 from aiogram import types
 from aiogram.dispatcher.storage import FSMContext
@@ -145,9 +144,12 @@ async def account_continueAdd(call: types.CallbackQuery, callback_data: dict, st
     if not account['url']:
         await account_add(call, state)
     else:
-        ns = NetSchoolAPI(account['url'])
-        ns_sessions[account['id']] = ns
-        regions = await db.execute("SELECT * FROM regions")
+        try:
+            ns = ns_sessions[account['id']]
+        except KeyError:
+            ns = NetSchoolAPI(account['url'])
+            ns_sessions[account['id']] = ns
+        # regions = await db.execute("SELECT * FROM regions")
         for key in account.items():
             if key[1]:
                 ns._prelogin_data.update({key[0]: key[1]})

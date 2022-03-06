@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import threading
 from bot import bot, dp
 from aiogram import types
@@ -11,7 +12,7 @@ from utils.db import db
 from datetime import datetime
 import httpx, asyncio
 
-latency = 5
+latency = 0.01
 ns_sessions = {}
 alert_threads = {}
 
@@ -100,28 +101,42 @@ async def getNew(old_data: tuple[dict], new_data: tuple[dict]):
                 new_objects.remove(new)
     return new_objects
 
-async def sendAnnouncement(chat_id: int, announcement):
+async def sendAnnouncement(chat_id: int, announcement, with_author=True, with_date=True):
     tree = BeautifulSoup(unescape(announcement["content"]), 'html.parser')
     contents = tree.find_all("p")
     clear_content = []
-    atags_raw = []
+    clear_atags = []
+    offset = 0
     for content in contents:
+        offset += len(content.text) - 7
         atags = content.find_all("a", href=True)
+        line_breaks = content.find_all("br")
+        if line_breaks:
+            for br in line_breaks:
+                br.replace_with('\n')
         if atags:
             for atag in atags:
-                if str(atag.text).replace('\xa0', ' ').replace(' ', '') != str(atag.get("href")):
-                    atags_raw.append(
-                        {'text': atag.text, 'href': atag.get("href")})
+                text = str(atag.text).replace('\xa0', ' ')
+                start = str(content).find(str(atag))
+                end = start + len(text)
+                if text.replace(' ', '') != str(atag.get("href")):
+                    clear_atags.append(
+                        {'text': text, 'href': atag.get("href"), 'offset': offset - end})
+                    atag.unwrap()
         clear_content.append(content.text)
-    # date = announcement['post_date']
-    info = str(announcement['name']) + "\n🗣 " + str(announcement['author']['nickName']) + "\n"
+    date = announcement['post_date']
+    info = str(announcement['name'])
+    if with_author:
+         info += "\n🗣 " + str(announcement['author']['nickName'])
+    if with_date:
+         info += "\n📅 " + str(date.strftime("%d.%m.%Y %H:%M:%S"))
     entity = [types.MessageEntity(type="bold", offset=0, length=len(announcement["name"])), types.MessageEntity(
         type="underline", offset=0, length=len(announcement["name"]))]
-    text = "\n".join(clear_content)
+    text = "\n" + "\n".join(clear_content).replace('\xa0', ' ')
     message_text = str(info) + str(text)
-    for atag in atags_raw:
+    for atag in clear_atags:
         entity.append(types.MessageEntity(type="text_link", offset=text.find(
-            atag["text"]) + len(info) + 1, length=len(atag["text"]), url=atag["href"]))
+            atag["text"]) + len(info) + 2, length=len(atag["text"]), url=atag["href"]))
     attachments = announcement['attachments']
     if attachments:
         markup = types.InlineKeyboardMarkup(row_width=1)
@@ -186,7 +201,7 @@ async def checkNew(account_id, ns: NetSchoolAPI):
                         if new_objects:
                             await log.write(account['id'], "Find the new announcement")
                             for new in new_objects:
-                                await sendAnnouncement(account['chat_id'], new)
+                                await sendAnnouncement(account['chat_id'], new, with_date=False)
                         old_data = new_data
                 except httpx.HTTPError as e:
                     # await bot.send_message(account['chat_id'], "⚠ Ошибка подключения при получении объявлений")

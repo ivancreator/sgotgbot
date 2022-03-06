@@ -26,14 +26,20 @@ async def accountSelect(call: types.CallbackQuery, callback_data: dict):
 async def accountRemove(call: types.CallbackQuery(), callback_data: dict, state: FSMContext):
     account_id = int(callback_data['value'])
     data = await state.get_data()
-    try:
-        ns = ns_sessions[account_id]
-        await ns.logout()
-        await ns._client.aclose()
-        del ns_sessions[account_id]
-    finally:
-        await db.execute("DELETE FROM accounts WHERE id = %s", [account_id])
-        await call.answer("🗑 Учётная запись успешно удалена")
+    account = await Account.get(account_id)
+    if account and account['telegram_id'] == call.from_user.id:
+        try:
+            ns = ns_sessions[account_id]
+            await ns.logout()
+            await ns._client.aclose()
+            del ns_sessions[account_id]
+        finally:
+            await db.execute("DELETE FROM accounts WHERE id = %s", [account_id])
+            await call.answer("🗑 Учётная запись успешно удалена")
+            await accountsCheck(data['usermsg'], state)
+            await call.message.delete()
+    else:
+        await call.answer("⚠ Учётная запись не найдена")
         await accountsCheck(data['usermsg'], state)
         await call.message.delete()
 
