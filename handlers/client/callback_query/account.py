@@ -1,4 +1,6 @@
 import tempfile
+
+import httpx
 from bot import dp, bot
 from aiogram import types
 from aiogram.dispatcher.storage import FSMContext
@@ -55,16 +57,19 @@ async def accountselectConfirm(call: types.CallbackQuery, callback_data: dict, s
 @dp.callback_query_handler(Main(), cb_account.filter(action='get_file'), state=['*'])
 async def getAttachments(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
     try:
+        attachment_id = int(callback_data['value'])
         await call.answer()
         file_msg = await call.message.answer("🕐 Немного подождите")
         active_accounts = await Account.get_activeAccounts(call.from_user.id)
+        if len(active_accounts) < 1:
+            file_msg = await call.message.answer("⚠ Для начала войдите в учётную запись")
         for account in active_accounts:
             account_id = account['id']
             ns = ns_sessions[account_id]
-            await file_msg.edit_text("🔍 Поиск документа")
+            await file_msg.edit_text("🔍 Поиск документа (%s)" % callback_data['value'])
             attachments = [announcement async for announcement in getAnnouncements(ns) for attachment in announcement['attachments'] if attachment['id'] == int(callback_data['value'])][0]['attachments']
             for attachment in attachments:
-                if attachment['id'] == int(callback_data['value']):
+                if attachment['id'] == attachment_id:
                     try:
                         await file_msg.edit_text("📥 Загрузка документа")
                         response = await ns._request_with_optional_relogin("attachments/"+str(attachment['id']))
@@ -74,6 +79,9 @@ async def getAttachments(call: types.CallbackQuery, callback_data: dict, state: 
                             await file_msg.edit_text("📤 Отправка документа")
                             await call.message.answer_document(document=types.InputFile("%s/%s" % (directory, filename)))
                             await file_msg.delete()
+                    except httpx.HTTPStatusError as e:
+                        if e.response.status_code in (httpx.codes.FORBIDDEN, httpx.codes.MOVED_PERMANENTLY):
+                            await file_msg.edit_text("📑 Отсутствует документ или доступ к нему")
                     except Exception as e:
                         print("Ошибка при получении документа: "+str(e))
                         print("Аргументы: "+str(e.args))

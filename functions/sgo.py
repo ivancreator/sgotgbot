@@ -154,7 +154,7 @@ async def reStore():
             ns = await accountLogin(account['id'])
             if account['alert']:
                 await add_checkThread(account['id'], ns)
-            print(account)
+            # print(account)
             # await asyncio.sleep(0.5)
         except Exception as e:
             await log.write("ОШИБКА", "Неожиданная ошибка при восстановлении сессии в СГО ("+str(e)+")")
@@ -176,7 +176,7 @@ async def checkNew(account_id, ns: NetSchoolAPI):
     try:
         account = await db.execute("SELECT id, alert, chat_id, display_name FROM accounts WHERE id = %s", [account_id])
         old_data = [announcemet async for announcemet in getAnnouncements(ns, take=-1)]
-        while account['id']:
+        while account['alert']:
             account = await db.execute("SELECT id, alert, chat_id, display_name FROM accounts WHERE id = %s", [account_id])
             if account:
                 try:
