@@ -12,7 +12,7 @@ from utils.db import db
 from datetime import datetime
 import httpx, asyncio
 
-latency = 0.01
+latency = 1
 ns_sessions = {}
 alert_threads = {}
 
