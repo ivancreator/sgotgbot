@@ -1,4 +1,4 @@
-from psycopg2 import ProgrammingError, IntegrityError
+from psycopg2 import InterfaceError, ProgrammingError, IntegrityError
 import psycopg2
 import psycopg2.extras
 from config import DB_CONFIG
@@ -10,11 +10,15 @@ from config import DB_CONFIG
 #     asyncio.get_running_loop().run_until_complete(task)
 #     return task.result()
 
+def db_connect(DB_CONFIG):
+    conn = psycopg2.connect(host=DB_CONFIG['host'], user=DB_CONFIG['user'], dbname=DB_CONFIG['db'], password=DB_CONFIG['password'])
+    conn.autocommit = True
+    return conn
+
 class InitDb():
 
     def __init__(self, *args, **kwargs):
-        self.conn = psycopg2.connect(host=DB_CONFIG['host'], user=DB_CONFIG['user'], dbname=DB_CONFIG['db'], password=DB_CONFIG['password'])
-        self.conn.autocommit = True
+        self.conn = db_connect(DB_CONFIG)
 
     async def execute(self, query, vars = None):
         try:
@@ -33,6 +37,8 @@ class InitDb():
                         if hasattr(e, 'pgerror'):
                             print("Ошибка выполнения запроса в базе данных: "+str(e))
                         raise e
+        except InterfaceError as e:
+            self.conn = db_connect(DB_CONFIG)
         except Exception as e:
             raise e
 
@@ -46,6 +52,8 @@ class InitDb():
                     except ProgrammingError as e:
                         print(e)
                         return None
+        except InterfaceError as e:
+            self.conn = db_connect(DB_CONFIG)
         except Exception as e:
             raise e
 
@@ -59,5 +67,7 @@ class InitDb():
                     except ProgrammingError as e:
                         print(e)
                         return None
+        except InterfaceError as e:
+            self.conn = db_connect(DB_CONFIG)
         except Exception as e:
             raise e

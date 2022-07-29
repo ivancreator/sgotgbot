@@ -30,9 +30,11 @@ async def accountaddCall(message: types.Message):
 
 @dp.message_handler(Main(), state=addAccount.wait_url)
 async def userConnect(message: types.Message, state: FSMContext):
-    ns = NetSchoolAPI(str(message.text))
-    url = ns._url
+    raw_url = message.text
+    url = raw_url
     try:
+        ns = NetSchoolAPI(str(raw_url))
+        url = ns._url
         response = await ns._client.get(url)
         if response.status_code == 200:
             data = await state.get_data()
@@ -55,7 +57,7 @@ async def userConnect(message: types.Message, state: FSMContext):
         await message.reply("Не удалось подключиться")
     except Exception as e:
         await message.reply("Неожиданная ошибка при выполнении запроса")
-        print(f"Неожиданная ошибка при подключении {url}")
+        print(f"Неожиданная ошибка при подключении по ссылке {url}")
         raise e
 
 @dp.message_handler(Main(), text='❌ Отмена', state=addAccount.wait_geo)
