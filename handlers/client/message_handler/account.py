@@ -6,7 +6,7 @@ from aiogram.dispatcher import FSMContext
 from functions.anti_flood import anti_flood
 from states import selectAccount
 from functions.client import sendAnnouncements, accountsList
-from functions.sgo import add_checkThread, checkNew, ns_sessions
+from functions.sgo import AnnouncementsError, add_checkThread, checkNew, ns_sessions
 from netschoolapi import NetSchoolAPI
 from utils.db.data import Account, db
 
@@ -19,7 +19,10 @@ async def announcements(message: types.Message, state: FSMContext):
     account = accounts[0]
     account_id = account['id']
     ns = ns_sessions[account_id]
-    await sendAnnouncements(message, ns, state)
+    try:
+        await sendAnnouncements(message, ns, state)
+    except AnnouncementsError:
+        await message.answer("📋 Список объявлений пуст")
     await wait_message.delete()
 
 @dp.message_handler(Main(), text="⚙️ Настройки", state=selectAccount.menu)

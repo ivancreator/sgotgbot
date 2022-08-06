@@ -16,6 +16,9 @@ latency = 1
 ns_sessions = {}
 alert_threads = {}
 
+class AnnouncementsError(BaseException):
+    pass
+
 class log:
     def __init__(self, filename):
         self.file = open(filename, "w", encoding="utf-8")

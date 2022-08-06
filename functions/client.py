@@ -4,7 +4,7 @@ from callbacks import cb_account
 from states import addAccount, selectAccount
 from netschoolapi import NetSchoolAPI, errors
 from utils.db import db
-from functions.sgo import getAnnouncements, sendAnnouncement, ns_sessions
+from functions.sgo import AnnouncementsError, getAnnouncements, sendAnnouncement, ns_sessions
 from utils.db.data import Account
 
 async def accountMenu(message: types.Message, state: FSMContext):
@@ -104,8 +104,11 @@ async def admin_userEdit(message: types.Message, x):
 async def sendAnnouncements(message: types.Message, ns: NetSchoolAPI, state):
     data = await state.get_data()
     announcements = [x async for x in getAnnouncements(ns)]
-    for announcement in announcements:
-        await sendAnnouncement(message.chat.id, announcement)
+    if announcements:
+        for announcement in announcements:
+            await sendAnnouncement(message.chat.id, announcement)
+    else:
+        raise AnnouncementsError()
 
 async def schoolInfo(message: types.Message, account_id: int):
     ns = ns_sessions[account_id]
